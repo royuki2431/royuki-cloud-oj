@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cloudoj.judge.mapper.SubmissionMapper">
+    
+    <!-- 结果映射 -->
+    <resultMap id="BaseResultMap" type="com.cloudoj.model.entity.judge.Submission">
+        <id column="id" jdbcType="BIGINT" property="id" />
+        <result column="problem_id" jdbcType="BIGINT" property="problemId" />
+        <result column="user_id" jdbcType="BIGINT" property="userId" />
+        <result column="language" jdbcType="VARCHAR" property="language" />
+        <result column="code" jdbcType="VARCHAR" property="code" />
+        <result column="status" jdbcType="VARCHAR" property="status" />
+        <result column="score" jdbcType="INTEGER" property="score" />
+        <result column="time_used" jdbcType="INTEGER" property="timeUsed" />
+        <result column="memory_used" jdbcType="INTEGER" property="memoryUsed" />
+        <result column="error_message" jdbcType="VARCHAR" property="errorMessage" />
+        <result column="pass_rate" jdbcType="DECIMAL" property="passRate" />
+        <result column="test_case_results" jdbcType="VARCHAR" property="testCaseResults" />
+        <result column="ip_address" jdbcType="VARCHAR" property="ipAddress" />
+        <result column="created_time" jdbcType="TIMESTAMP" property="createTime" />
+        <result column="judged_time" jdbcType="TIMESTAMP" property="judgedTime" />
+        <result column="deleted" jdbcType="INTEGER" property="deleted" />
+    </resultMap>
+    
+    <!-- 基础列 -->
+    <sql id="Base_Column_List">
+        id, problem_id, user_id, language, code, status, score, time_used, memory_used,
+        error_message, pass_rate, test_case_results, ip_address, created_time, judged_time, deleted
+    </sql>
+    
+    <!-- 插入提交记录 -->
+    <insert id="insert" parameterType="com.cloudoj.model.entity.judge.Submission" 
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO submission (
+            problem_id, user_id, language, code, status, ip_address, created_time
+        ) VALUES (
+            #{problemId,jdbcType=BIGINT},
+            #{userId,jdbcType=BIGINT},
+            #{language,jdbcType=VARCHAR},
+            #{code,jdbcType=VARCHAR},
+            #{status,jdbcType=VARCHAR},
+            #{ipAddress,jdbcType=VARCHAR},
+            NOW()
+        )
+    </insert>
+    
+    <!-- 根据ID查询提交记录 -->
+    <select id="selectById" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT 
+        <include refid="Base_Column_List" />
+        FROM submission
+        WHERE id = #{id,jdbcType=BIGINT}
+    </select>
+    
+    <!-- 更新评测结果 -->
+    <update id="updateJudgeResult" parameterType="com.cloudoj.model.entity.judge.Submission">
+        UPDATE submission
+        SET status = #{status,jdbcType=VARCHAR},
+            score = #{score,jdbcType=INTEGER},
+            time_used = #{timeUsed,jdbcType=INTEGER},
+            memory_used = #{memoryUsed,jdbcType=INTEGER},
+            error_message = #{errorMessage,jdbcType=VARCHAR},
+            pass_rate = #{passRate,jdbcType=DECIMAL},
+            test_case_results = #{testCaseResults,jdbcType=VARCHAR},
+            judged_time = NOW()
+        WHERE id = #{id,jdbcType=BIGINT}
+    </update>
+    
+    <!-- 查询用户的提交记录列表 -->
+    <select id="selectByUserId" resultMap="BaseResultMap">
+        SELECT 
+        <include refid="Base_Column_List" />
+        FROM submission
+        WHERE user_id = #{userId,jdbcType=BIGINT}
+        ORDER BY created_time DESC
+        LIMIT #{offset,jdbcType=INTEGER}, #{limit,jdbcType=INTEGER}
+    </select>
+    
+    <!-- 查询题目的提交记录列表 -->
+    <select id="selectByProblemId" resultMap="BaseResultMap">
+        SELECT 
+        <include refid="Base_Column_List" />
+        FROM submission
+        WHERE problem_id = #{problemId,jdbcType=BIGINT}
+        ORDER BY created_time DESC
+        LIMIT #{offset,jdbcType=INTEGER}, #{limit,jdbcType=INTEGER}
+    </select>
+    
+    <!-- 查询所有提交记录（分页） -->
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT 
+        <include refid="Base_Column_List" />
+        FROM submission
+        ORDER BY created_time DESC
+        LIMIT #{offset,jdbcType=INTEGER}, #{limit,jdbcType=INTEGER}
+    </select>
+    
+    <!-- 统计用户提交次数 -->
+    <select id="countByUserId" parameterType="java.lang.Long" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM submission
+        WHERE user_id = #{userId,jdbcType=BIGINT}
+    </select>
+    
+    <!-- 统计用户通过的题目数 -->
+    <select id="countAcceptedByUserId" parameterType="java.lang.Long" resultType="java.lang.Integer">
+        SELECT COUNT(DISTINCT problem_id)
+        FROM submission
+        WHERE user_id = #{userId,jdbcType=BIGINT}
+        AND status = 'ACCEPTED'
+    </select>
+    
+</mapper>
