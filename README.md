@@ -1,8 +1,8 @@
-# Cloud-OJ 在线编程实训平台
+# Royuki-Cloud-OJ 在线编程实训平台
 
 <div align="center">
 
-![Cloud-OJ Logo](https://via.placeholder.com/200x200?text=Cloud-OJ)
+![Royuki-Cloud-OJ Logo](https://via.placeholder.com/200x200?text=Royuki-Cloud-OJ)
 
 **基于微服务架构的在线编程实训平台**
 
@@ -20,7 +20,7 @@
 
 ## 项目简介
 
-**Cloud-OJ** 是一个基于微服务架构的在线编程实训平台（Online Judge），适用于高校编程教学、算法竞赛训练等场景。平台支持多种主流编程语言的在线编辑、代码提交和自动评测，提供完整的教学管理和学习分析功能。
+**Royuki-Cloud-OJ** 是一个基于微服务架构的在线编程实训平台（Online Judge），适用于高校编程教学、算法竞赛训练等场景。平台支持多种主流编程语言的在线编辑、代码提交和自动评测，提供完整的教学管理和学习分析功能。
 
 ### 核心特性
 
@@ -114,8 +114,8 @@
 
 ```bash
 # 1. 克隆项目
-git clone https://github.com/your-username/cloud-oj.git
-cd cloud-oj
+git clone https://github.com/your-username/royuki-cloud-oj.git
+cd royuki-cloud-oj
 
 # 2. 启动基础设施（MySQL、Redis、Nacos等）
 cd docker
@@ -130,7 +130,7 @@ mvn clean package -DskipTests
 # 然后分别启动各个微服务
 
 # 5. 启动前端
-cd cloud-oj-frontend
+cd royuki-cloud-oj-frontend
 npm install
 npm run dev
 ```
@@ -146,15 +146,15 @@ npm run dev
 ## 📁 项目结构
 
 ```
-cloud-oj/
-├── cloud-oj-gateway/          # API网关服务 (端口8080)
-├── cloud-oj-user/             # 用户服务 (端口8081)
-├── cloud-oj-problem/          # 题库服务 (端口8082)
-├── cloud-oj-judge/            # 评测服务 (端口8083)
-├── cloud-oj-learning/         # 学习服务 (端口8084)
-├── cloud-oj-course/           # 课程服务 (端口8085)
-├── cloud-oj-common/           # 公共模块
-├── cloud-oj-frontend/         # 前端Vue项目
+royuki-cloud-oj/
+├── royuki-cloud-oj-gateway/          # API网关服务 (端口8080)
+├── royuki-cloud-oj-user/             # 用户服务 (端口8081)
+├── royuki-cloud-oj-problem/          # 题库服务 (端口8082)
+├── royuki-cloud-oj-judge/            # 评测服务 (端口8083)
+├── royuki-cloud-oj-learning/         # 学习服务 (端口8084)
+├── royuki-cloud-oj-course/           # 课程服务 (端口8085)
+├── royuki-cloud-oj-common/           # 公共模块
+├── royuki-cloud-oj-frontend/         # 前端Vue项目
 ├── docker/                    # Docker配置
 ├── docs/                      # 项目文档
 │   ├── 开发文档.md
@@ -213,11 +213,11 @@ cloud-oj/
 
 | 数据库 | 说明 | 主要表 |
 |--------|------|--------|
-| cloud_oj_user | 用户服务 | user, role_permission, user_session |
-| cloud_oj_problem | 题库服务 | problem, test_case, problem_tag |
-| cloud_oj_judge | 评测服务 | submission, judge_queue, judge_detail |
-| cloud_oj_learning | 学习服务 | learning_progress, wrong_problem |
-| cloud_oj_course | 课程服务 | course, class, homework |
+| royuki_cloud_oj_user | 用户服务 | user, role_permission, user_session |
+| royuki_cloud_oj_problem | 题库服务 | problem, test_case, problem_tag |
+| royuki_cloud_oj_judge | 评测服务 | submission, judge_queue, judge_detail |
+| royuki_cloud_oj_learning | 学习服务 | learning_progress, wrong_problem |
+| royuki_cloud_oj_course | 课程服务 | course, class, homework |
 
 详细设计请查看 [数据库设计.md](数据库设计.md)
 
@@ -292,7 +292,7 @@ chore: 构建/工具变动
 mvn test
 
 # 运行指定模块测试
-cd cloud-oj-user
+cd royuki-cloud-oj-user
 mvn test
 ```
 
@@ -327,7 +327,7 @@ docker-compose logs -f
 mvn clean package -DskipTests
 
 # 运行服务
-java -jar cloud-oj-gateway/target/cloud-oj-gateway-1.0.0.jar
+java -jar royuki-cloud-oj-gateway/target/royuki-cloud-oj-gateway-1.0.0.jar
 ```
 
 ---
@@ -361,9 +361,9 @@ java -jar cloud-oj-gateway/target/cloud-oj-gateway-1.0.0.jar
 
 ## 📞 联系方式
 
-- **项目主页**：https://github.com/your-username/cloud-oj
+- **项目主页**：https://github.com/your-username/royuki-cloud-oj
 - **文档地址**：https://docs.cloudoj.com
-- **问题反馈**：https://github.com/your-username/cloud-oj/issues
+- **问题反馈**：https://github.com/your-username/royuki-cloud-oj/issues
 - **邮箱**：your-email@example.com
 
 ---
@@ -420,6 +420,6 @@ java -jar cloud-oj-gateway/target/cloud-oj-gateway-1.0.0.jar
 
 **⭐ 如果这个项目对你有帮助，请给个Star支持一下！⭐**
 
-Made with ❤️ by Cloud-OJ Team
+Made with ❤️ by Royuki-Cloud-OJ Team
 
 </div>
