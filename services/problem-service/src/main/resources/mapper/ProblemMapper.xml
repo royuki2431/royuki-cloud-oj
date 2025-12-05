@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cloudoj.problem.mapper.ProblemMapper">
+    
+    <!-- 结果映射 -->
+    <resultMap id="BaseResultMap" type="com.cloudoj.model.entity.problem.Problem">
+        <id column="id" jdbcType="BIGINT" property="id" />
+        <result column="title" jdbcType="VARCHAR" property="title" />
+        <result column="description" jdbcType="VARCHAR" property="description" />
+        <result column="input_format" jdbcType="VARCHAR" property="inputFormat" />
+        <result column="output_format" jdbcType="VARCHAR" property="outputFormat" />
+        <result column="sample_input" jdbcType="VARCHAR" property="sampleInput" />
+        <result column="sample_output" jdbcType="VARCHAR" property="sampleOutput" />
+        <result column="hint" jdbcType="VARCHAR" property="hint" />
+        <result column="difficulty" jdbcType="VARCHAR" property="difficulty" />
+        <result column="time_limit" jdbcType="INTEGER" property="timeLimit" />
+        <result column="memory_limit" jdbcType="INTEGER" property="memoryLimit" />
+        <result column="languages" jdbcType="VARCHAR" property="languages" />
+        <result column="source" jdbcType="VARCHAR" property="source" />
+        <result column="author_id" jdbcType="BIGINT" property="authorId" />
+        <result column="accept_count" jdbcType="INTEGER" property="acceptCount" />
+        <result column="submit_count" jdbcType="INTEGER" property="submitCount" />
+        <result column="status" jdbcType="INTEGER" property="status" />
+        <result column="is_public" jdbcType="INTEGER" property="isPublic" />
+        <result column="created_time" jdbcType="TIMESTAMP" property="createTime" />
+        <result column="updated_time" jdbcType="TIMESTAMP" property="updateTime" />
+    </resultMap>
+    
+    <!-- 基础列 -->
+    <sql id="Base_Column_List">
+        id, title, description, input_format, output_format, sample_input, sample_output,
+        hint, difficulty, time_limit, memory_limit, languages, source, author_id,
+        accept_count, submit_count, status, is_public, created_time, updated_time
+    </sql>
+    
+    <!-- 根据主键查询 -->
+    <select id="selectByPrimaryKey" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT 
+        <include refid="Base_Column_List" />
+        FROM problem
+        WHERE id = #{id,jdbcType=BIGINT}
+        AND status = 1
+    </select>
+    
+    <!-- 查询所有（分页） -->
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT 
+        <include refid="Base_Column_List" />
+        FROM problem
+        WHERE status = 1
+        AND is_public = 1
+        ORDER BY created_time DESC
+        <if test="offset != null and limit != null">
+            LIMIT #{offset}, #{limit}
+        </if>
+    </select>
+    
+    <!-- 根据难度查询 -->
+    <select id="selectByDifficulty" resultMap="BaseResultMap">
+        SELECT 
+        <include refid="Base_Column_List" />
+        FROM problem
+        WHERE difficulty = #{difficulty,jdbcType=VARCHAR}
+        AND status = 1
+        AND is_public = 1
+        ORDER BY created_time DESC
+        <if test="offset != null and limit != null">
+            LIMIT #{offset}, #{limit}
+        </if>
+    </select>
+    
+    <!-- 根据标题模糊查询 -->
+    <select id="selectByTitle" resultMap="BaseResultMap">
+        SELECT 
+        <include refid="Base_Column_List" />
+        FROM problem
+        WHERE title LIKE CONCAT('%', #{title,jdbcType=VARCHAR}, '%')
+        AND status = 1
+        AND is_public = 1
+        ORDER BY created_time DESC
+        <if test="offset != null and limit != null">
+            LIMIT #{offset}, #{limit}
+        </if>
+    </select>
+    
+    <!-- 统计总数 -->
+    <select id="countAll" resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM problem
+        WHERE status = 1
+        AND is_public = 1
+    </select>
+    
+    <!-- 插入（选择性） -->
+    <insert id="insertSelective" parameterType="com.cloudoj.model.entity.problem.Problem" 
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO problem
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="title != null">title,</if>
+            <if test="description != null">description,</if>
+            <if test="inputFormat != null">input_format,</if>
+            <if test="outputFormat != null">output_format,</if>
+            <if test="sampleInput != null">sample_input,</if>
+            <if test="sampleOutput != null">sample_output,</if>
+            <if test="hint != null">hint,</if>
+            <if test="difficulty != null">difficulty,</if>
+            <if test="timeLimit != null">time_limit,</if>
+            <if test="memoryLimit != null">memory_limit,</if>
+            <if test="languages != null">languages,</if>
+            <if test="source != null">source,</if>
+            <if test="authorId != null">author_id,</if>
+            <if test="status != null">status,</if>
+            <if test="isPublic != null">is_public,</if>
+            created_time, updated_time,
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="title != null">#{title,jdbcType=VARCHAR},</if>
+            <if test="description != null">#{description,jdbcType=VARCHAR},</if>
+            <if test="inputFormat != null">#{inputFormat,jdbcType=VARCHAR},</if>
+            <if test="outputFormat != null">#{outputFormat,jdbcType=VARCHAR},</if>
+            <if test="sampleInput != null">#{sampleInput,jdbcType=VARCHAR},</if>
+            <if test="sampleOutput != null">#{sampleOutput,jdbcType=VARCHAR},</if>
+            <if test="hint != null">#{hint,jdbcType=VARCHAR},</if>
+            <if test="difficulty != null">#{difficulty,jdbcType=VARCHAR},</if>
+            <if test="timeLimit != null">#{timeLimit,jdbcType=INTEGER},</if>
+            <if test="memoryLimit != null">#{memoryLimit,jdbcType=INTEGER},</if>
+            <if test="languages != null">#{languages,jdbcType=VARCHAR},</if>
+            <if test="source != null">#{source,jdbcType=VARCHAR},</if>
+            <if test="authorId != null">#{authorId,jdbcType=BIGINT},</if>
+            <if test="status != null">#{status,jdbcType=INTEGER},</if>
+            <if test="isPublic != null">#{isPublic,jdbcType=INTEGER},</if>
+            NOW(), NOW(),
+        </trim>
+    </insert>
+    
+    <!-- 插入（所有字段） -->
+    <insert id="insert" parameterType="com.cloudoj.model.entity.problem.Problem" 
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO problem (
+            title, description, input_format, output_format, sample_input, sample_output,
+            hint, difficulty, time_limit, memory_limit, languages, source, author_id,
+            status, is_public, created_time, updated_time
+        )
+        VALUES (
+            #{title,jdbcType=VARCHAR},
+            #{description,jdbcType=VARCHAR},
+            #{inputFormat,jdbcType=VARCHAR},
+            #{outputFormat,jdbcType=VARCHAR},
+            #{sampleInput,jdbcType=VARCHAR},
+            #{sampleOutput,jdbcType=VARCHAR},
+            #{hint,jdbcType=VARCHAR},
+            #{difficulty,jdbcType=VARCHAR},
+            #{timeLimit,jdbcType=INTEGER},
+            #{memoryLimit,jdbcType=INTEGER},
+            #{languages,jdbcType=VARCHAR},
+            #{source,jdbcType=VARCHAR},
+            #{authorId,jdbcType=BIGINT},
+            #{status,jdbcType=INTEGER},
+            #{isPublic,jdbcType=INTEGER},
+            NOW(), NOW()
+        )
+    </insert>
+    
+    <!-- 根据主键更新（选择性） -->
+    <update id="updateByPrimaryKeySelective" parameterType="com.cloudoj.model.entity.problem.Problem">
+        UPDATE problem
+        <set>
+            <if test="title != null">title = #{title,jdbcType=VARCHAR},</if>
+            <if test="description != null">description = #{description,jdbcType=VARCHAR},</if>
+            <if test="inputFormat != null">input_format = #{inputFormat,jdbcType=VARCHAR},</if>
+            <if test="outputFormat != null">output_format = #{outputFormat,jdbcType=VARCHAR},</if>
+            <if test="sampleInput != null">sample_input = #{sampleInput,jdbcType=VARCHAR},</if>
+            <if test="sampleOutput != null">sample_output = #{sampleOutput,jdbcType=VARCHAR},</if>
+            <if test="hint != null">hint = #{hint,jdbcType=VARCHAR},</if>
+            <if test="difficulty != null">difficulty = #{difficulty,jdbcType=VARCHAR},</if>
+            <if test="timeLimit != null">time_limit = #{timeLimit,jdbcType=INTEGER},</if>
+            <if test="memoryLimit != null">memory_limit = #{memoryLimit,jdbcType=INTEGER},</if>
+            <if test="languages != null">languages = #{languages,jdbcType=VARCHAR},</if>
+            <if test="source != null">source = #{source,jdbcType=VARCHAR},</if>
+            <if test="authorId != null">author_id = #{authorId,jdbcType=BIGINT},</if>
+            <if test="status != null">status = #{status,jdbcType=INTEGER},</if>
+            <if test="isPublic != null">is_public = #{isPublic,jdbcType=INTEGER},</if>
+            updated_time = NOW(),
+        </set>
+        WHERE id = #{id,jdbcType=BIGINT}
+    </update>
+    
+    <!-- 根据主键更新（所有字段） -->
+    <update id="updateByPrimaryKey" parameterType="com.cloudoj.model.entity.problem.Problem">
+        UPDATE problem
+        SET title = #{title,jdbcType=VARCHAR},
+            description = #{description,jdbcType=VARCHAR},
+            input_format = #{inputFormat,jdbcType=VARCHAR},
+            output_format = #{outputFormat,jdbcType=VARCHAR},
+            sample_input = #{sampleInput,jdbcType=VARCHAR},
+            sample_output = #{sampleOutput,jdbcType=VARCHAR},
+            hint = #{hint,jdbcType=VARCHAR},
+            difficulty = #{difficulty,jdbcType=VARCHAR},
+            time_limit = #{timeLimit,jdbcType=INTEGER},
+            memory_limit = #{memoryLimit,jdbcType=INTEGER},
+            languages = #{languages,jdbcType=VARCHAR},
+            source = #{source,jdbcType=VARCHAR},
+            author_id = #{authorId,jdbcType=BIGINT},
+            status = #{status,jdbcType=INTEGER},
+            is_public = #{isPublic,jdbcType=INTEGER},
+            updated_time = NOW()
+        WHERE id = #{id,jdbcType=BIGINT}
+    </update>
+    
+    <!-- 根据主键删除 -->
+    <delete id="deleteByPrimaryKey" parameterType="java.lang.Long">
+        UPDATE problem
+        SET status = 0,
+            updated_time = NOW()
+        WHERE id = #{id,jdbcType=BIGINT}
+    </delete>
+    
+    <!-- 更新提交统计 -->
+    <update id="updateSubmitCount">
+        UPDATE problem
+        SET submit_count = submit_count + 1,
+            <if test="isAccepted">
+            accept_count = accept_count + 1,
+            </if>
+            updated_time = NOW()
+        WHERE id = #{id,jdbcType=BIGINT}
+    </update>
+    
+</mapper>

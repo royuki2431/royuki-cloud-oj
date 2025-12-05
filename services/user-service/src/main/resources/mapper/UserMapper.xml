@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cloudoj.user.mapper.UserMapper">
+    
+    <!-- 结果映射 -->
+    <resultMap id="BaseResultMap" type="com.cloudoj.model.entity.user.User">
+        <id column="id" jdbcType="BIGINT" property="id" />
+        <result column="username" jdbcType="VARCHAR" property="username" />
+        <result column="password" jdbcType="VARCHAR" property="password" />
+        <result column="email" jdbcType="VARCHAR" property="email" />
+        <result column="phone" jdbcType="VARCHAR" property="phone" />
+        <result column="real_name" jdbcType="VARCHAR" property="realName" />
+        <result column="avatar" jdbcType="VARCHAR" property="avatar" />
+        <result column="role" jdbcType="VARCHAR" property="role" />
+        <result column="status" jdbcType="INTEGER" property="status" />
+        <result column="school" jdbcType="VARCHAR" property="school" />
+        <result column="student_id" jdbcType="VARCHAR" property="studentId" />
+        <result column="grade" jdbcType="VARCHAR" property="grade" />
+        <result column="major" jdbcType="VARCHAR" property="major" />
+        <result column="created_time" jdbcType="TIMESTAMP" property="createTime" />
+        <result column="updated_time" jdbcType="TIMESTAMP" property="updateTime" />
+        <result column="last_login_time" jdbcType="TIMESTAMP" property="lastLoginTime" />
+        <result column="last_login_ip" jdbcType="VARCHAR" property="lastLoginIp" />
+        <result column="deleted" jdbcType="INTEGER" property="deleted" />
+    </resultMap>
+    
+    <!-- 基础列 -->
+    <sql id="Base_Column_List">
+        id, username, password, email, phone, real_name, avatar, role, status, 
+        school, student_id, grade, major, created_time, updated_time, 
+        last_login_time, last_login_ip, deleted
+    </sql>
+    
+    <!-- 根据主键查询 -->
+    <select id="selectByPrimaryKey" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT 
+        <include refid="Base_Column_List" />
+        FROM user
+        WHERE id = #{id,jdbcType=BIGINT}
+        AND deleted = 0
+    </select>
+    
+    <!-- 根据用户名查询 -->
+    <select id="selectByUsername" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT 
+        <include refid="Base_Column_List" />
+        FROM user
+        WHERE username = #{username,jdbcType=VARCHAR}
+        AND deleted = 0
+    </select>
+    
+    <!-- 根据邮箱查询 -->
+    <select id="selectByEmail" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT 
+        <include refid="Base_Column_List" />
+        FROM user
+        WHERE email = #{email,jdbcType=VARCHAR}
+        AND deleted = 0
+    </select>
+    
+    <!-- 逻辑删除 -->
+    <delete id="deleteByPrimaryKey" parameterType="java.lang.Long">
+        UPDATE user
+        SET deleted = 1,
+            updated_time = NOW()
+        WHERE id = #{id,jdbcType=BIGINT}
+    </delete>
+    
+    <!-- 插入（所有字段） -->
+    <insert id="insert" parameterType="com.cloudoj.model.entity.user.User" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO user (
+            username, password, email, phone, real_name, 
+            avatar, role, status, school, student_id, 
+            grade, major, created_time, updated_time, deleted
+        )
+        VALUES (
+            #{username,jdbcType=VARCHAR}, 
+            #{password,jdbcType=VARCHAR}, 
+            #{email,jdbcType=VARCHAR}, 
+            #{phone,jdbcType=VARCHAR}, 
+            #{realName,jdbcType=VARCHAR},
+            #{avatar,jdbcType=VARCHAR}, 
+            #{role,jdbcType=VARCHAR}, 
+            #{status,jdbcType=INTEGER}, 
+            #{school,jdbcType=VARCHAR}, 
+            #{studentId,jdbcType=VARCHAR},
+            #{grade,jdbcType=VARCHAR}, 
+            #{major,jdbcType=VARCHAR}, 
+            NOW(), 
+            NOW(), 
+            0
+        )
+    </insert>
+    
+    <!-- 插入（选择性插入非空字段） -->
+    <insert id="insertSelective" parameterType="com.cloudoj.model.entity.user.User" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO user
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="username != null">username,</if>
+            <if test="password != null">password,</if>
+            <if test="email != null">email,</if>
+            <if test="phone != null">phone,</if>
+            <if test="realName != null">real_name,</if>
+            <if test="avatar != null">avatar,</if>
+            <if test="role != null">role,</if>
+            <if test="status != null">status,</if>
+            <if test="school != null">school,</if>
+            <if test="studentId != null">student_id,</if>
+            <if test="grade != null">grade,</if>
+            <if test="major != null">major,</if>
+            created_time,
+            updated_time,
+            deleted,
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="username != null">#{username,jdbcType=VARCHAR},</if>
+            <if test="password != null">#{password,jdbcType=VARCHAR},</if>
+            <if test="email != null">#{email,jdbcType=VARCHAR},</if>
+            <if test="phone != null">#{phone,jdbcType=VARCHAR},</if>
+            <if test="realName != null">#{realName,jdbcType=VARCHAR},</if>
+            <if test="avatar != null">#{avatar,jdbcType=VARCHAR},</if>
+            <if test="role != null">#{role,jdbcType=VARCHAR},</if>
+            <if test="status != null">#{status,jdbcType=INTEGER},</if>
+            <if test="school != null">#{school,jdbcType=VARCHAR},</if>
+            <if test="studentId != null">#{studentId,jdbcType=VARCHAR},</if>
+            <if test="grade != null">#{grade,jdbcType=VARCHAR},</if>
+            <if test="major != null">#{major,jdbcType=VARCHAR},</if>
+            NOW(),
+            NOW(),
+            0,
+        </trim>
+    </insert>
+    
+    <!-- 根据主键更新（选择性更新非空字段） -->
+    <update id="updateByPrimaryKeySelective" parameterType="com.cloudoj.model.entity.user.User">
+        UPDATE user
+        <set>
+            <if test="username != null">username = #{username,jdbcType=VARCHAR},</if>
+            <if test="password != null">password = #{password,jdbcType=VARCHAR},</if>
+            <if test="email != null">email = #{email,jdbcType=VARCHAR},</if>
+            <if test="phone != null">phone = #{phone,jdbcType=VARCHAR},</if>
+            <if test="realName != null">real_name = #{realName,jdbcType=VARCHAR},</if>
+            <if test="avatar != null">avatar = #{avatar,jdbcType=VARCHAR},</if>
+            <if test="role != null">role = #{role,jdbcType=VARCHAR},</if>
+            <if test="status != null">status = #{status,jdbcType=INTEGER},</if>
+            <if test="school != null">school = #{school,jdbcType=VARCHAR},</if>
+            <if test="studentId != null">student_id = #{studentId,jdbcType=VARCHAR},</if>
+            <if test="grade != null">grade = #{grade,jdbcType=VARCHAR},</if>
+            <if test="major != null">major = #{major,jdbcType=VARCHAR},</if>
+            updated_time = NOW(),
+        </set>
+        WHERE id = #{id,jdbcType=BIGINT}
+    </update>
+    
+    <!-- 根据主键更新（所有字段） -->
+    <update id="updateByPrimaryKey" parameterType="com.cloudoj.model.entity.user.User">
+        UPDATE user
+        SET username = #{username,jdbcType=VARCHAR},
+            password = #{password,jdbcType=VARCHAR},
+            email = #{email,jdbcType=VARCHAR},
+            phone = #{phone,jdbcType=VARCHAR},
+            real_name = #{realName,jdbcType=VARCHAR},
+            avatar = #{avatar,jdbcType=VARCHAR},
+            role = #{role,jdbcType=VARCHAR},
+            status = #{status,jdbcType=INTEGER},
+            school = #{school,jdbcType=VARCHAR},
+            student_id = #{studentId,jdbcType=VARCHAR},
+            grade = #{grade,jdbcType=VARCHAR},
+            major = #{major,jdbcType=VARCHAR},
+            updated_time = NOW()
+        WHERE id = #{id,jdbcType=BIGINT}
+    </update>
+    
+    <!-- 更新最后登录信息 -->
+    <update id="updateLastLogin">
+        UPDATE user
+        SET last_login_time = #{loginTime,jdbcType=VARCHAR},
+            last_login_ip = #{loginIp,jdbcType=VARCHAR},
+            updated_time = NOW()
+        WHERE id = #{userId,jdbcType=BIGINT}
+    </update>
+    
+</mapper>

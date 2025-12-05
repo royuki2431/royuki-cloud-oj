@@ -1,0 +1,86 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: gateway
+  cloud:
+    nacos:
+      server-addr: 127.0.0.1:8848
+      config:
+        import-check:
+          enabled: false
+    
+    # Gateway路由配置
+    gateway:
+      discovery:
+        locator:
+          enabled: true  # 启用服务发现
+          lower-case-service-id: true  # 服务名小写
+      
+      routes:
+        # 用户服务路由
+        - id: user-service
+          uri: lb://user-service
+          predicates:
+            - Path=/api/user/**
+          filters:
+            - StripPrefix=1  # 去掉第一层路径/api
+        
+        # 题库服务路由
+        - id: problem-service
+          uri: lb://problem-service
+          predicates:
+            - Path=/api/problem/**
+          filters:
+            - StripPrefix=1
+        
+        # 评测服务路由
+        - id: judge-service
+          uri: lb://judge-service
+          predicates:
+            - Path=/api/judge/**
+          filters:
+            - StripPrefix=1
+        
+        # 学习服务路由
+        - id: learning-service
+          uri: lb://learning-service
+          predicates:
+            - Path=/api/learning/**
+          filters:
+            - StripPrefix=1
+        
+        # 课程服务路由
+        - id: course-service
+          uri: lb://course-service
+          predicates:
+            - Path=/api/course/**
+          filters:
+            - StripPrefix=1
+      
+      # 全局CORS配置
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOriginPatterns: "*"  # 使用 allowedOriginPatterns 替代 allowed-origins
+            allowed-methods: 
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+            allowed-headers: "*"
+            allow-credentials: true
+            max-age: 3600
+
+# JWT配置（需要和user-service保持一致）
+jwt:
+  secret: cloudoj-secret-key-2024-very-long-and-secure-string-for-jwt-token-generation
+  expire-time: 86400000
+
+# 日志配置
+logging:
+  level:
+    com.cloudoj: debug
+    org.springframework.cloud.gateway: debug
