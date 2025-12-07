@@ -1,20 +1,25 @@
 package com.cloudoj.judge.service.impl;
 
+import com.cloudoj.judge.config.RabbitMQConfig;
 import com.cloudoj.judge.mapper.SubmissionMapper;
 import com.cloudoj.judge.service.JudgeService;
+import com.cloudoj.model.dto.judge.JudgeMessage;
 import com.cloudoj.model.dto.judge.SubmitCodeRequest;
 import com.cloudoj.model.entity.judge.Submission;
 import com.cloudoj.model.enums.JudgeStatusEnum;
 import com.cloudoj.model.vo.judge.JudgeResultVO;
 import com.cloudoj.model.vo.judge.SubmissionVO;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -26,6 +31,18 @@ public class JudgeServiceImpl implements JudgeService {
     
     @Autowired
     private SubmissionMapper submissionMapper;
+    
+    @Autowired
+    private RabbitTemplate rabbitTemplate;
+    
+    @Autowired
+    private RedisTemplate<String, Object> redisTemplate;
+    
+    // Redis缓存key前缀
+    private static final String SUBMISSION_CACHE_PREFIX = "submission:";
+    private static final String JUDGE_RESULT_CACHE_PREFIX = "judge:result:";
+    // 缓存过期时间（秒）
+    private static final long CACHE_EXPIRE_TIME = 300; // 5分钟
     
     @Override
     public Long submitCode(SubmitCodeRequest request, String ipAddress) {
@@ -43,8 +60,22 @@ public class JudgeServiceImpl implements JudgeService {
         log.info("代码提交成功, submissionId={}, problemId={}, userId={}", 
                 submission.getId(), request.getProblemId(), request.getUserId());
         
-        // 异步执行评测（这里简化处理，直接调用）
-        executeJudge(submission.getId());
+        // 发送评测消息到RabbitMQ队列（异步评测）
+        JudgeMessage judgeMessage = new JudgeMessage();
+        judgeMessage.setSubmissionId(submission.getId());
+        judgeMessage.setProblemId(request.getProblemId());
+        judgeMessage.setUserId(request.getUserId());
+        judgeMessage.setLanguage(request.getLanguage());
+        judgeMessage.setCode(request.getCode());
+        judgeMessage.setRetryCount(0);
+        
+        rabbitTemplate.convertAndSend(
+            RabbitMQConfig.JUDGE_EXCHANGE,
+            RabbitMQConfig.JUDGE_ROUTING_KEY,
+            judgeMessage
+        );
+        
+        log.info("评测任务已发送到队列, submissionId={}", submission.getId());
         
         return submission.getId();
     }
@@ -72,8 +103,18 @@ public class JudgeServiceImpl implements JudgeService {
         submission.setTimeUsed(result.getTimeUsed());
         submission.setMemoryUsed(result.getMemoryUsed());
         submission.setErrorMessage(result.getErrorMessage());
-        submission.setPassRate(new BigDecimal(result.getPassRate()));
+        
+        // 转换通过率：去掉百分号后转换为BigDecimal
+        String passRateStr = result.getPassRate();
+        if (passRateStr != null && passRateStr.endsWith("%")) {
+            passRateStr = passRateStr.substring(0, passRateStr.length() - 1);
+        }
+        submission.setPassRate(new BigDecimal(passRateStr));
+        
         submissionMapper.updateJudgeResult(submission);
+        
+        // 清除缓存，让下次查询能获取最新结果
+        clearSubmissionCache(submissionId);
         
         log.info("评测完成, submissionId={}, status={}, score={}", 
                 submissionId, result.getStatus(), result.getScore());
@@ -139,6 +180,15 @@ public class JudgeServiceImpl implements JudgeService {
     
     @Override
     public SubmissionVO getSubmissionById(Long id) {
+        // 先从缓存获取
+        String cacheKey = SUBMISSION_CACHE_PREFIX + id;
+        SubmissionVO cachedVO = (SubmissionVO) redisTemplate.opsForValue().get(cacheKey);
+        if (cachedVO != null) {
+            log.debug("从缓存获取提交记录, submissionId={}", id);
+            return cachedVO;
+        }
+        
+        // 缓存未命中，查询数据库
         Submission submission = submissionMapper.selectById(id);
         if (submission == null) {
             return null;
@@ -152,6 +202,10 @@ public class JudgeServiceImpl implements JudgeService {
         if (statusEnum != null) {
             vo.setStatusDesc(statusEnum.getDesc());
         }
+        
+        // 写入缓存
+        redisTemplate.opsForValue().set(cacheKey, vo, CACHE_EXPIRE_TIME, TimeUnit.SECONDS);
+        log.debug("提交记录已缓存, submissionId={}", id);
         
         return vo;
     }
@@ -188,6 +242,15 @@ public class JudgeServiceImpl implements JudgeService {
     
     @Override
     public JudgeResultVO getJudgeResult(Long submissionId) {
+        // 先从缓存获取
+        String cacheKey = JUDGE_RESULT_CACHE_PREFIX + submissionId;
+        JudgeResultVO cachedResult = (JudgeResultVO) redisTemplate.opsForValue().get(cacheKey);
+        if (cachedResult != null) {
+            log.debug("从缓存获取评测结果, submissionId={}", submissionId);
+            return cachedResult;
+        }
+        
+        // 缓存未命中，查询数据库
         Submission submission = submissionMapper.selectById(submissionId);
         if (submission == null) {
             return null;
@@ -211,6 +274,43 @@ public class JudgeServiceImpl implements JudgeService {
             result.setPassRate(submission.getPassRate().toString() + "%");
         }
         
+        // 只有评测完成的结果才缓存
+        if (!JudgeStatusEnum.PENDING.getCode().equals(submission.getStatus()) 
+            && !JudgeStatusEnum.JUDGING.getCode().equals(submission.getStatus())) {
+            redisTemplate.opsForValue().set(cacheKey, result, CACHE_EXPIRE_TIME, TimeUnit.SECONDS);
+            log.debug("评测结果已缓存, submissionId={}", submissionId);
+        }
+        
         return result;
+    }
+    
+    @Override
+    public void markAsSystemError(Long submissionId) {
+        Submission submission = submissionMapper.selectById(submissionId);
+        if (submission == null) {
+            return;
+        }
+        
+        submission.setStatus(JudgeStatusEnum.SYSTEM_ERROR.getCode());
+        submission.setScore(0);
+        submission.setPassRate(BigDecimal.ZERO);
+        submission.setErrorMessage("系统错误：评测任务处理失败");
+        submissionMapper.updateJudgeResult(submission);
+        
+        // 清除缓存
+        clearSubmissionCache(submissionId);
+        
+        log.info("提交记录已标记为系统错误, submissionId={}", submissionId);
+    }
+    
+    @Override
+    public void clearSubmissionCache(Long submissionId) {
+        String submissionKey = SUBMISSION_CACHE_PREFIX + submissionId;
+        String resultKey = JUDGE_RESULT_CACHE_PREFIX + submissionId;
+        
+        redisTemplate.delete(submissionKey);
+        redisTemplate.delete(resultKey);
+        
+        log.debug("已清除提交记录缓存, submissionId={}", submissionId);
     }
 }

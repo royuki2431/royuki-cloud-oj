@@ -5,12 +5,10 @@ spring:
   application:
     name: judge-service
   
-  # 禁用自动配置（暂时不需要的组件）
+  # 禁用 Seata 自动配置
   autoconfigure:
     exclude:
       - org.apache.seata.spring.boot.autoconfigure.SeataAutoConfiguration
-      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
-      - org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration
   
   # 数据库配置
   datasource:
@@ -26,26 +24,32 @@ spring:
       max-wait: 60000
       validation-query: SELECT 1
   
-  # Redis配置（已禁用，需要时取消注释并移除上面的exclude配置）
-  # data:
-  #   redis:
-  #     host: localhost
-  #     port: 6379
-  #     database: 2
-  #     timeout: 3000
-  #     lettuce:
-  #       pool:
-  #         max-active: 20
-  #         max-idle: 10
-  #         min-idle: 5
+  # Redis配置（已启用）
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      database: 2
+      timeout: 3000
+      lettuce:
+        pool:
+          max-active: 20
+          max-idle: 10
+          min-idle: 5
   
-  # RabbitMQ配置（已禁用，需要时取消注释并移除上面的exclude配置）
-  # rabbitmq:
-  #   host: localhost
-  #   port: 5672
-  #   username: guest
-  #   password: guest
-  #   virtual-host: /
+  # RabbitMQ配置（已启用）
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+    virtual-host: /
+    listener:
+      simple:
+        acknowledge-mode: manual  # 手动确认模式
+        concurrency: 5  # 并发消费者数量
+        max-concurrency: 10  # 最大并发消费者
+        prefetch: 1  # 每次从队列获取的消息数
   
   # Nacos配置
   cloud:
