@@ -24,6 +24,9 @@ public class JudgeController {
     @Autowired
     private JudgeService judgeService;
     
+    @Autowired
+    private com.cloudoj.judge.service.SubmitRateLimiter submitRateLimiter;
+    
     /**
      * 健康检查
      */
@@ -107,6 +110,15 @@ public class JudgeController {
     public Result<JudgeResultVO> rejudge(@PathVariable Long submissionId) {
         JudgeResultVO result = judgeService.executeJudge(submissionId);
         return Result.success(result);
+    }
+    
+    /**
+     * 获取剩余提交次数
+     */
+    @GetMapping("/rate-limit/{userId}")
+    public Result<Integer> getRemainingSubmits(@PathVariable Long userId) {
+        int remaining = submitRateLimiter.getRemainingSubmits(userId);
+        return Result.success(remaining);
     }
     
     /**

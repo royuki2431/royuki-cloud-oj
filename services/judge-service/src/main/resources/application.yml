@@ -70,7 +70,12 @@ mybatis:
 # Docker配置
 docker:
   host: tcp://localhost:2375
-  registry-url: https://registry.hub.docker.com
+  #registry-url: https://registry.hub.docker.com
+  # 资源限制
+  resources:
+    memory: 256m        # 内存限制
+    cpu-count: 1        # CPU核心数
+    timeout: 5          # 超时时间（秒）
 
 # 日志配置
 logging:

@@ -27,6 +27,18 @@
             <version>3.3.4</version>
         </dependency>
         
+        <!-- Apache HttpClient 5 核心依赖（Docker Java需要） -->
+        <dependency>
+            <groupId>org.apache.httpcomponents.core5</groupId>
+            <artifactId>httpcore5</artifactId>
+            <version>5.2.4</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.httpcomponents.core5</groupId>
+            <artifactId>httpcore5-h2</artifactId>
+            <version>5.2.4</version>
+        </dependency>
+        
         <!-- RabbitMQ（异步评测）-->
         <dependency>
             <groupId>org.springframework.boot</groupId>

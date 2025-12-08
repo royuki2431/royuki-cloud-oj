@@ -138,4 +138,43 @@ public class ProblemController {
         Long count = problemService.getTotalCount();
         return Result.success(count);
     }
+    
+    /**
+     * 更新题目提交统计
+     * @param id 题目ID
+     * @param isAccepted 是否通过
+     */
+    @PostMapping("/updateStats/{id}")
+    public Result<Void> updateSubmitStats(
+            @PathVariable Long id,
+            @RequestParam Boolean isAccepted) {
+        log.info("更新题目统计：id={}, isAccepted={}", id, isAccepted);
+        problemService.updateSubmitCount(id, isAccepted);
+        return Result.success("更新成功", null);
+    }
+    
+    /**
+     * 测试接口：查看题目统计数据的JSON格式
+     */
+    @GetMapping("/testStats")
+    public Result<Map<String, Object>> testStats() {
+        List<Problem> problems = problemService.getAllProblems(1, 10);
+        Map<String, Object> result = new HashMap<>();
+        result.put("problems", problems);
+        
+        // 单独展示第一个题目的统计数据
+        if (!problems.isEmpty()) {
+            Problem first = problems.get(0);
+            Map<String, Object> stats = new HashMap<>();
+            stats.put("id", first.getId());
+            stats.put("title", first.getTitle());
+            stats.put("acceptCount", first.getAcceptCount());
+            stats.put("submitCount", first.getSubmitCount());
+            stats.put("acceptCount_type", first.getAcceptCount() != null ? first.getAcceptCount().getClass().getName() : "null");
+            stats.put("submitCount_type", first.getSubmitCount() != null ? first.getSubmitCount().getClass().getName() : "null");
+            result.put("firstProblemStats", stats);
+        }
+        
+        return Result.success(result);
+    }
 }

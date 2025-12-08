@@ -10,10 +10,9 @@ import com.cloudoj.user.exception.BusinessException;
 import com.cloudoj.user.mapper.UserMapper;
 import com.cloudoj.user.service.UserService;
 import com.cloudoj.user.utils.JwtUtil;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,13 +23,14 @@ import java.time.format.DateTimeFormatter;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
+    
     @Autowired
     UserMapper userMapper;
     @Autowired
     JwtUtil jwtUtil;
-    BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+    @Autowired
+    PasswordEncoder passwordEncoder;
     
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -76,7 +76,10 @@ public class UserServiceImpl implements UserService {
         }
         
         // 2. 验证密码
-        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+        log.debug("输入密码：{}, 数据库密码：{}", request.getPassword(), user.getPassword());
+        boolean matches = passwordEncoder.matches(request.getPassword(), user.getPassword());
+        log.debug("密码匹配结果：{}", matches);
+        if (!matches) {
             throw new BusinessException(StatusCode.PASSWORD_ERROR, "密码错误");
         }
         

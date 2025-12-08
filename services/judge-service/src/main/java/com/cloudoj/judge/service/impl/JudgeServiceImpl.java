@@ -3,6 +3,7 @@ package com.cloudoj.judge.service.impl;
 import com.cloudoj.judge.config.RabbitMQConfig;
 import com.cloudoj.judge.mapper.SubmissionMapper;
 import com.cloudoj.judge.service.JudgeService;
+import com.cloudoj.judge.service.SubmitRateLimiter;
 import com.cloudoj.model.dto.judge.JudgeMessage;
 import com.cloudoj.model.dto.judge.SubmitCodeRequest;
 import com.cloudoj.model.entity.judge.Submission;
@@ -17,6 +18,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
@@ -38,6 +40,15 @@ public class JudgeServiceImpl implements JudgeService {
     @Autowired
     private RedisTemplate<String, Object> redisTemplate;
     
+    @Autowired
+    private SubmitRateLimiter submitRateLimiter;
+    
+    @Autowired(required = false)
+    private com.cloudoj.judge.sandbox.SandboxFactory sandboxFactory;
+    
+    @Autowired
+    private org.springframework.web.client.RestTemplate restTemplate;
+    
     // Redis缓存key前缀
     private static final String SUBMISSION_CACHE_PREFIX = "submission:";
     private static final String JUDGE_RESULT_CACHE_PREFIX = "judge:result:";
@@ -46,6 +57,14 @@ public class JudgeServiceImpl implements JudgeService {
     
     @Override
     public Long submitCode(SubmitCodeRequest request, String ipAddress) {
+        // 检查提交频率限制
+        if (!submitRateLimiter.canSubmit(request.getUserId())) {
+            long waitSeconds = submitRateLimiter.getWaitSeconds(request.getUserId());
+            throw new RuntimeException(
+                String.format("提交过于频繁，请在%d秒后重试", waitSeconds)
+            );
+        }
+        
         // 创建提交记录
         Submission submission = new Submission();
         submission.setProblemId(request.getProblemId());
@@ -57,6 +76,10 @@ public class JudgeServiceImpl implements JudgeService {
         
         // 保存到数据库
         submissionMapper.insert(submission);
+        
+        // 记录提交次数（用于频率限制）
+        submitRateLimiter.recordSubmit(request.getUserId());
+        
         log.info("代码提交成功, submissionId={}, problemId={}, userId={}", 
                 submission.getId(), request.getProblemId(), request.getUserId());
         
@@ -94,8 +117,16 @@ public class JudgeServiceImpl implements JudgeService {
         submission.setStatus(JudgeStatusEnum.JUDGING.getCode());
         submissionMapper.updateJudgeResult(submission);
         
-        // 执行评测（这里是模拟评测，实际应该调用沙箱执行）
-        JudgeResultVO result = simulateJudge(submission);
+        // 执行评测
+        JudgeResultVO result;
+        if (sandboxFactory != null) {
+            // 使用Docker沙箱评测
+            result = dockerJudge(submission);
+        } else {
+            // 如果Docker不可用，使用模拟评测
+            log.warn("Docker沙箱不可用，使用模拟评测");
+            result = simulateJudge(submission);
+        }
         
         // 更新评测结果
         submission.setStatus(result.getStatus());
@@ -111,7 +142,21 @@ public class JudgeServiceImpl implements JudgeService {
         }
         submission.setPassRate(new BigDecimal(passRateStr));
         
+        // 保存测试用例结果详情（JSON格式）
+        if (result.getTestCaseResults() != null && !result.getTestCaseResults().isEmpty()) {
+            try {
+                com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                String testCaseResultsJson = objectMapper.writeValueAsString(result.getTestCaseResults());
+                submission.setTestCaseResults(testCaseResultsJson);
+            } catch (Exception e) {
+                log.error("序列化测试用例结果失败", e);
+            }
+        }
+        
         submissionMapper.updateJudgeResult(submission);
+        
+        // 更新题目统计（提交次数和通过次数）
+        updateProblemStatistics(submission.getProblemId(), "ACCEPTED".equals(result.getStatus()));
         
         // 清除缓存，让下次查询能获取最新结果
         clearSubmissionCache(submissionId);
@@ -123,7 +168,100 @@ public class JudgeServiceImpl implements JudgeService {
     }
     
     /**
-     * 模拟评测（TODO: 替换为真实的Docker沙箱评测）
+     * Docker沙箱评测
+     */
+    private JudgeResultVO dockerJudge(Submission submission) {
+        JudgeResultVO result = new JudgeResultVO();
+        result.setSubmissionId(submission.getId());
+        
+        try {
+            // 获取语言对应的沙箱
+            com.cloudoj.judge.sandbox.LanguageSandbox sandbox = sandboxFactory.getSandbox(submission.getLanguage());
+            
+            // 准备测试用例数据（这里使用示例数据，实际应从problem-service获取）
+            List<com.cloudoj.model.dto.judge.JudgeTestCase> testCases = getMockTestCases(submission.getProblemId());
+            
+            // 执行评测
+            com.cloudoj.judge.sandbox.LanguageSandbox.JudgeResult judgeResult = sandbox.judge(
+                    submission.getCode(),
+                    testCases,
+                    5000, // 5秒时间限制
+                    256   // 256MB内存限制
+            );
+            
+            // 转换结果
+            result.setStatus(judgeResult.getStatus());
+            result.setStatusDesc(JudgeStatusEnum.getByCode(judgeResult.getStatus()).getDesc());
+            result.setScore(judgeResult.getScore());
+            result.setTimeUsed((int) judgeResult.getTimeUsed());
+            result.setMemoryUsed((int) judgeResult.getMemoryUsed());
+            result.setErrorMessage(judgeResult.getErrorMessage());
+            result.setPassRate(String.format("%.2f%%", 
+                    100.0 * judgeResult.getPassedTestCases() / judgeResult.getTotalTestCases()));
+            
+            // 转换测试用例结果详情，同时关联输入数据
+            List<JudgeResultVO.TestCaseResultVO> testCaseResults = new ArrayList<>();
+            List<com.cloudoj.judge.sandbox.LanguageSandbox.TestCaseResult> results = judgeResult.getTestCaseResults();
+            for (int i = 0; i < results.size(); i++) {
+                com.cloudoj.judge.sandbox.LanguageSandbox.TestCaseResult tcr = results.get(i);
+                JudgeResultVO.TestCaseResultVO vo = new JudgeResultVO.TestCaseResultVO();
+                vo.setTestCaseId(tcr.getTestCaseId());
+                // 根据passed字段转换为status
+                vo.setStatus(tcr.isPassed() ? "ACCEPTED" : "WRONG_ANSWER");
+                vo.setTimeUsed(tcr.getTimeUsed());
+                vo.setMemoryUsed(tcr.getMemoryUsed());
+                // 从testCases获取input（如果索引对应）
+                if (i < testCases.size()) {
+                    vo.setInput(testCases.get(i).getInput());
+                }
+                vo.setExpectedOutput(tcr.getExpectedOutput());
+                vo.setActualOutput(tcr.getActualOutput());
+                vo.setErrorMessage(tcr.getErrorMessage());
+                testCaseResults.add(vo);
+            }
+            result.setTestCaseResults(testCaseResults);
+            
+            log.info("Docker评测完成: submissionId={}, status={}, score={}, testCases={}/{}", 
+                    submission.getId(), result.getStatus(), result.getScore(),
+                    judgeResult.getPassedTestCases(), judgeResult.getTotalTestCases());
+            
+        } catch (Exception e) {
+            log.error("Docker评测失败，使用模拟评测", e);
+            return simulateJudge(submission);
+        }
+        
+        return result;
+    }
+    
+    /**
+     * 获取模拟测试用例（临时方案，待集成problem-service）
+     */
+    private List<com.cloudoj.model.dto.judge.JudgeTestCase> getMockTestCases(Long problemId) {
+        // TODO: 从problem-service获取真实测试用例
+        List<com.cloudoj.model.dto.judge.JudgeTestCase> testCases = new ArrayList<>();
+        
+        // 示例：两数之和问题的测试用例
+        testCases.add(com.cloudoj.model.dto.judge.JudgeTestCase.builder()
+                .id(1L)
+                .input("2 7\n9")
+                .output("0 1")
+                .timeLimit(5000)
+                .memoryLimit(256)
+                .build());
+        
+        testCases.add(com.cloudoj.model.dto.judge.JudgeTestCase.builder()
+                .id(2L)
+                .input("3 2\n3")
+                .output("0 1")
+                .timeLimit(5000)
+                .memoryLimit(256)
+                .build());
+        
+        return testCases;
+    }
+    
+    /**
+     * 模拟评测（Docker不可用时的备选方案）
      */
     private JudgeResultVO simulateJudge(Submission submission) {
         JudgeResultVO result = new JudgeResultVO();
@@ -301,6 +439,20 @@ public class JudgeServiceImpl implements JudgeService {
         clearSubmissionCache(submissionId);
         
         log.info("提交记录已标记为系统错误, submissionId={}", submissionId);
+    }
+    
+    /**
+     * 更新题目统计信息（提交次数和通过次数）
+     */
+    private void updateProblemStatistics(Long problemId, Boolean isAccepted) {
+        try {
+            String url = "http://problem-service/problem/updateStats/" + problemId + "?isAccepted=" + isAccepted;
+            restTemplate.postForObject(url, null, com.cloudoj.model.common.Result.class);
+            log.info("更新题目统计成功, problemId={}, isAccepted={}", problemId, isAccepted);
+        } catch (Exception e) {
+            log.error("更新题目统计失败, problemId={}, isAccepted={}", problemId, isAccepted, e);
+            // 统计更新失败不影响评测结果，只记录日志
+        }
     }
     
     @Override

@@ -38,7 +38,8 @@ public class UserController {
     @PostMapping("/login")
     public Result<LoginVO> login(@Validated @RequestBody LoginRequest request, 
                                    HttpServletRequest httpRequest) {
-        log.info("用户登录请求：username={}", request.getUsername());
+        log.info("用户登录请求：username={}, password长度={}", request.getUsername(), request.getPassword().length());
+        log.debug("接收到的密码：{}", request.getPassword());
         LoginVO loginVO = userService.login(request);
         
         // 更新最后登录时间和IP
