@@ -1,6 +1,8 @@
 package com.cloudoj.judge.service.impl;
 
 import com.cloudoj.judge.config.RabbitMQConfig;
+import com.cloudoj.judge.feign.CourseServiceClient;
+import com.cloudoj.judge.feign.ProblemServiceClient;
 import com.cloudoj.judge.mapper.SubmissionMapper;
 import com.cloudoj.judge.service.JudgeService;
 import com.cloudoj.judge.service.SubmitRateLimiter;
@@ -54,6 +56,12 @@ public class JudgeServiceImpl implements JudgeService {
     @Autowired
     @org.springframework.beans.factory.annotation.Qualifier("loadBalancedRestTemplate")
     private org.springframework.web.client.RestTemplate restTemplate;
+    
+    @Autowired
+    private ProblemServiceClient problemServiceClient;
+    
+    @Autowired
+    private CourseServiceClient courseServiceClient;
     
     @Autowired
     private com.cloudoj.judge.service.JudgeNotificationService notificationService;
@@ -265,27 +273,21 @@ public class JudgeServiceImpl implements JudgeService {
     }
     
     /**
-     * 获取测试用例（从problem-service）
+     * 获取测试用例（从problem-service，使用 Feign + Sentinel 降级）
      */
     private List<com.cloudoj.model.dto.judge.JudgeTestCase> getMockTestCases(Long problemId) {
         try {
-            // 调用problem-service获取测试用例（通过服务名，直接调用不走网关）
-            String url = "http://problem-service/problem/" + problemId + "/testcases";
-            log.info("从problem-service获取测试用例：url={}", url);
+            log.info("从problem-service获取测试用例：problemId={}", problemId);
             
-            ResponseEntity<Result<List<TestCase>>> response = restTemplate.exchange(
-                url,
-                HttpMethod.GET,
-                null,
-                new ParameterizedTypeReference<Result<List<TestCase>>>() {}
-            );
+            // 使用 Feign 客户端调用（自动支持 Sentinel 降级）
+            Result<List<TestCase>> result = problemServiceClient.getTestCases(problemId);
             
-            if (response.getBody() == null || response.getBody().getData() == null) {
-                log.error("获取测试用例失败：problemId={}, response={}", problemId, response);
+            if (result == null || result.getData() == null || result.getData().isEmpty()) {
+                log.warn("获取测试用例为空，使用降级数据：problemId={}", problemId);
                 return getFallbackTestCases(problemId);
             }
             
-            List<TestCase> testCases = response.getBody().getData();
+            List<TestCase> testCases = result.getData();
             log.info("成功获取测试用例：problemId={}, count={}", problemId, testCases.size());
             
             // 转换为JudgeTestCase
@@ -517,12 +519,12 @@ public class JudgeServiceImpl implements JudgeService {
     }
     
     /**
-     * 更新题目统计信息（提交次数和通过次数）
+     * 更新题目统计信息（使用 Feign + Sentinel 降级）
      */
     private void updateProblemStatistics(Long problemId, Boolean isAccepted) {
         try {
-            String url = "http://problem-service/problem/updateStats/" + problemId + "?isAccepted=" + isAccepted;
-            restTemplate.postForObject(url, null, com.cloudoj.model.common.Result.class);
+            // 使用 Feign 客户端调用（自动支持 Sentinel 降级）
+            problemServiceClient.updateProblemStats(problemId, isAccepted);
             log.info("更新题目统计成功, problemId={}, isAccepted={}", problemId, isAccepted);
         } catch (Exception e) {
             log.error("更新题目统计失败, problemId={}, isAccepted={}", problemId, isAccepted, e);
@@ -531,12 +533,10 @@ public class JudgeServiceImpl implements JudgeService {
     }
     
     /**
-     * 记录作业提交到course-service
+     * 记录作业提交到course-service（使用 Feign + Sentinel 降级）
      */
     private void recordHomeworkSubmission(Submission submission, JudgeResultVO result) {
         try {
-            String url = "http://course-service/course/homework/recordSubmission";
-            
             java.util.Map<String, Object> params = new java.util.HashMap<>();
             params.put("homeworkId", submission.getHomeworkId());
             params.put("studentId", submission.getUserId());
@@ -545,7 +545,8 @@ public class JudgeServiceImpl implements JudgeService {
             params.put("score", result.getScore() != null ? result.getScore() : 0);
             params.put("status", result.getStatus());
             
-            restTemplate.postForObject(url, params, com.cloudoj.model.common.Result.class);
+            // 使用 Feign 客户端调用（自动支持 Sentinel 降级）
+            courseServiceClient.recordHomeworkSubmission(params);
             log.info("记录作业提交成功, homeworkId={}, studentId={}, problemId={}, score={}", 
                     submission.getHomeworkId(), submission.getUserId(), submission.getProblemId(), result.getScore());
         } catch (Exception e) {

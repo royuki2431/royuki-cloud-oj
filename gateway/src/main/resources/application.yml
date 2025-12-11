@@ -16,6 +16,19 @@ spring:
         import-check:
           enabled: false
     
+    # Sentinel 网关限流配置
+    sentinel:
+      transport:
+        dashboard: localhost:8858
+        port: 8718
+      eager: true
+      scg:
+        fallback:
+          mode: response
+          response-status: 429
+          response-body: '{"code":429,"message":"请求过于频繁，请稍后重试","data":null}'
+          content-type: application/json
+    
     # Gateway路由配置
     gateway:
       discovery:

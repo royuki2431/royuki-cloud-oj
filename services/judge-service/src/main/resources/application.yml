@@ -63,6 +63,25 @@ spring:
         group: DEFAULT_GROUP
         import-check:
           enabled: false
+    # Sentinel 配置
+    sentinel:
+      transport:
+        dashboard: localhost:8858  # Sentinel Dashboard 地址
+        port: 8719  # 与 Dashboard 通信端口
+      eager: true  # 立即加载
+      # Feign 整合 Sentinel
+      feign:
+        enabled: true
+
+# Feign 配置
+feign:
+  sentinel:
+    enabled: true  # 开启 Sentinel 对 Feign 的支持
+  client:
+    config:
+      default:
+        connectTimeout: 5000
+        readTimeout: 10000
 
 # MyBatis 配置
 mybatis:

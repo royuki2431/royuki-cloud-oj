@@ -1,5 +1,7 @@
 package com.cloudoj.judge.controller;
 
+import com.alibaba.csp.sentinel.annotation.SentinelResource;
+import com.alibaba.csp.sentinel.slots.block.BlockException;
 import com.cloudoj.common.annotation.RequireLogin;
 import com.cloudoj.common.annotation.RequireRole;
 import com.cloudoj.common.context.UserContext;
@@ -40,9 +42,11 @@ public class JudgeController {
     
     /**
      * 提交代码（需要登录）
+     * 使用 Sentinel 限流保护
      */
     @RequireLogin
     @PostMapping("/submit")
+    @SentinelResource(value = "submitCode", blockHandler = "submitCodeBlockHandler", fallback = "submitCodeFallback")
     public Result<Long> submitCode(@Valid @RequestBody SubmitCodeRequest request, 
                                      HttpServletRequest httpRequest) {
         // 从用户上下文获取用户ID
@@ -141,5 +145,31 @@ public class JudgeController {
             ip = request.getRemoteAddr();
         }
         return ip;
+    }
+    
+    // ==================== Sentinel 限流降级处理 ====================
+    
+    /**
+     * 提交代码限流处理
+     */
+    public Result<Long> submitCodeBlockHandler(SubmitCodeRequest request, HttpServletRequest httpRequest, BlockException ex) {
+        log.warn("提交代码触发限流: userId={}, rule={}", request.getUserId(), ex.getRule());
+        return Result.error(429, "系统繁忙，请稍后重试");
+    }
+    
+    /**
+     * 提交代码降级处理
+     */
+    public Result<Long> submitCodeFallback(SubmitCodeRequest request, HttpServletRequest httpRequest, Throwable ex) {
+        log.error("提交代码服务降级: userId={}, error={}", request.getUserId(), ex.getMessage());
+        return Result.error(503, "评测服务暂时不可用，请稍后重试");
+    }
+    
+    /**
+     * 查询结果限流处理
+     */
+    public Result<JudgeResultVO> getResultBlockHandler(Long submissionId, BlockException ex) {
+        log.warn("查询评测结果触发限流: submissionId={}", submissionId);
+        return Result.error(429, "查询过于频繁，请稍后重试");
     }
 }
