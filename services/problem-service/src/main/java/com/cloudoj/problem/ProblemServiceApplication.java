@@ -14,7 +14,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 @EnableTransactionManagement
 @MapperScan("com.cloudoj.problem.mapper")
 @EnableDiscoveryClient
-@SpringBootApplication
+@SpringBootApplication(scanBasePackages = {"com.cloudoj.problem", "com.cloudoj.common"})
 public class ProblemServiceApplication {
     
     public static void main(String[] args) {

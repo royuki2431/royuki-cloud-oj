@@ -17,7 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.format.DateTimeFormatter;
-
+import java.util.List;
 /**
  * 用户服务实现类
  */
@@ -123,5 +123,114 @@ public class UserServiceImpl implements UserService {
         String loginTime = java.time.LocalDateTime.now()
             .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
         userMapper.updateLastLogin(userId, loginTime, ip);
+    }
+    
+    // ==================== 管理员功能实现 ====================
+    
+    @Override
+    public List<User> getUserList(String keyword, String role, Integer status, int offset, int limit) {
+        return userMapper.selectUserList(keyword, role, status, offset, limit);
+    }
+    
+    @Override
+    public int countUsers(String keyword, String role, Integer status) {
+        return userMapper.countUsers(keyword, role, status);
+    }
+    
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long createUser(User user) {
+        // 1. 检查用户名是否已存在
+        User existUser = getUserByUsername(user.getUsername());
+        if (existUser != null) {
+            throw new BusinessException(StatusCode.USER_ALREADY_EXISTS, "用户名已存在");
+        }
+        
+        // 2. 检查邮箱是否已存在
+        User emailUser = userMapper.selectByEmail(user.getEmail());
+        if (emailUser != null) {
+            throw new BusinessException(StatusCode.USER_ALREADY_EXISTS, "邮箱已被注册");
+        }
+        
+        // 3. 加密密码
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
+        
+        // 4. 插入用户
+        userMapper.insertSelective(user);
+        
+        log.info("管理员创建用户成功：username={}, userId={}", user.getUsername(), user.getId());
+        
+        return user.getId();
+    }
+    
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean updateUser(User user) {
+        // 检查用户是否存在
+        User existUser = getUserById(user.getId());
+        if (existUser == null) {
+            throw new BusinessException(StatusCode.USER_NOT_FOUND, "用户不存在");
+        }
+        
+        // 更新用户（密码不更新）
+        user.setPassword(null);
+        int rows = userMapper.updateByPrimaryKeySelective(user);
+        
+        log.info("管理员更新用户成功：userId={}", user.getId());
+        
+        return rows > 0;
+    }
+    
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean updateUserStatus(Long userId, Integer status) {
+        User user = new User();
+        user.setId(userId);
+        user.setStatus(status);
+        
+        int rows = userMapper.updateByPrimaryKeySelective(user);
+        
+        log.info("管理员更新用户状态成功：userId={}, status={}", userId, status);
+        
+        return rows > 0;
+    }
+    
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean resetPassword(Long userId) {
+        // 检查用户是否存在
+        User existUser = getUserById(userId);
+        if (existUser == null) {
+            throw new BusinessException(StatusCode.USER_NOT_FOUND, "用户不存在");
+        }
+        
+        // 重置密码为123456
+        String newPassword = passwordEncoder.encode("123456");
+        
+        User user = new User();
+        user.setId(userId);
+        user.setPassword(newPassword);
+        
+        int rows = userMapper.updateByPrimaryKeySelective(user);
+        
+        log.info("管理员重置用户密码成功：userId={}", userId);
+        
+        return rows > 0;
+    }
+    
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean deleteUser(Long userId) {
+        // 检查用户是否存在
+        User existUser = getUserById(userId);
+        if (existUser == null) {
+            throw new BusinessException(StatusCode.USER_NOT_FOUND, "用户不存在");
+        }
+        
+        int rows = userMapper.deleteByPrimaryKey(userId);
+        
+        log.info("管理员删除用户成功：userId={}", userId);
+        
+        return rows > 0;
     }
 }

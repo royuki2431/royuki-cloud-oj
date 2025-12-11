@@ -53,7 +53,7 @@
         <el-table-column label="标签" min-width="200">
           <template #default="{ row }">
             <el-tag
-              v-for="tag in row.tags"
+              v-for="tag in parseTags(row.tags)"
               :key="tag"
               size="small"
               style="margin-right: 8px"
@@ -125,6 +125,17 @@ const selectedDifficulty = ref('')
 const loading = ref(false)
 const problems = ref<Problem[]>([])
 
+// 解析tags JSON字符串为数组
+const parseTags = (tags: string | string[] | undefined): string[] => {
+  if (!tags) return []
+  if (Array.isArray(tags)) return tags
+  try {
+    return JSON.parse(tags)
+  } catch (e) {
+    return []
+  }
+}
+
 // 加载题目列表
 const loadProblems = async () => {
   loading.value = true
@@ -135,7 +146,11 @@ const loadProblems = async () => {
     })
 
     // 后端返回的是list字段，不是records
-    problems.value = data.list || data.records || []
+    // 解析tags字段
+    problems.value = (data.list || data.records || []).map(problem => ({
+      ...problem,
+      tags: parseTags(problem.tags)
+    }))
     total.value = data.total
   } catch (error: any) {
     ElMessage.error(error.message || '加载失败')
@@ -159,7 +174,10 @@ const handleSearch = async () => {
       pageSize: pageSize.value,
     })
 
-    problems.value = data
+    problems.value = data.map(problem => ({
+      ...problem,
+      tags: parseTags(problem.tags)
+    }))
     total.value = data.length
   } catch (error: any) {
     ElMessage.error(error.message || '搜索失败')
@@ -182,7 +200,10 @@ const handleFilter = async () => {
       pageSize: pageSize.value,
     })
 
-    problems.value = data
+    problems.value = data.map(problem => ({
+      ...problem,
+      tags: parseTags(problem.tags)
+    }))
     total.value = data.length
   } catch (error: any) {
     ElMessage.error(error.message || '筛选失败')

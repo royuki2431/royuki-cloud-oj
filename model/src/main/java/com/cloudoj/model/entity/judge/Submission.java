@@ -80,6 +80,11 @@ public class Submission implements Serializable {
     private String ipAddress;
     
     /**
+     * 作业ID（可选，如果是作业提交则有值）
+     */
+    private Long homeworkId;
+    
+    /**
      * 提交时间
      */
     private LocalDateTime createTime;

@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import type { User, LoginRequest, RegisterRequest } from '@/types'
+import { UserRole, UserRoleLevel } from '@/types'
 import { login as loginApi, register as registerApi, getUserInfo, logout as logoutApi } from '@/api/user'
 
 export const useUserStore = defineStore('user', () => {
@@ -58,14 +59,57 @@ export const useUserStore = defineStore('user', () => {
         }
     }
 
+    // 计算属性：用户角色
+    const userRole = computed<UserRole | null>(() => userInfo.value?.role || null)
+
+    // 计算属性：是否为学生
+    const isStudent = computed(() => userRole.value === UserRole.STUDENT)
+
+    // 计算属性：是否为教师
+    const isTeacher = computed(() => userRole.value === UserRole.TEACHER)
+
+    // 计算属性：是否为管理员
+    const isAdmin = computed(() => userRole.value === UserRole.ADMIN)
+
+    // 检查是否有指定角色
+    const hasRole = (role: UserRole): boolean => {
+        return userRole.value === role
+    }
+
+    // 检查是否有任一角色
+    const hasAnyRole = (roles: UserRole[]): boolean => {
+        return roles.includes(userRole.value as UserRole)
+    }
+
+    // 检查是否至少拥有指定权限等级
+    const hasMinRole = (role: UserRole): boolean => {
+        if (!userRole.value) return false
+        return UserRoleLevel[userRole.value] >= UserRoleLevel[role]
+    }
+
+    // 检查是否可以访问某个功能
+    const canAccess = (requiredRole?: UserRole): boolean => {
+        if (!requiredRole) return true // 无权限要求
+        if (!isLoggedIn.value) return false // 未登录
+        return hasMinRole(requiredRole) // 检查权限等级
+    }
+
     return {
         token,
         userInfo,
         isLoggedIn,
+        userRole,
+        isStudent,
+        isTeacher,
+        isAdmin,
         login,
         register,
         logout,
         loadUserInfo,
         initUser,
+        hasRole,
+        hasAnyRole,
+        hasMinRole,
+        canAccess,
     }
 })

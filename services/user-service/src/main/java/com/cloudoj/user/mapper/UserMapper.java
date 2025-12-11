@@ -4,6 +4,8 @@ import com.cloudoj.model.entity.user.User;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.util.List;
+
 /**
  * 用户Mapper接口
  */
@@ -56,4 +58,22 @@ public interface UserMapper {
     int updateLastLogin(@Param("userId") Long userId, 
                         @Param("loginTime") String loginTime, 
                         @Param("loginIp") String loginIp);
+    
+    // ==================== 管理员功能 ====================
+    
+    /**
+     * 查询用户列表
+     */
+    List<User> selectUserList(@Param("keyword") String keyword,
+                              @Param("role") String role,
+                              @Param("status") Integer status,
+                              @Param("offset") int offset,
+                              @Param("limit") int limit);
+    
+    /**
+     * 统计用户数量
+     */
+    int countUsers(@Param("keyword") String keyword,
+                   @Param("role") String role,
+                   @Param("status") Integer status);
 }

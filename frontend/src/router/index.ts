@@ -1,6 +1,17 @@
 import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { ElMessage } from 'element-plus'
+import { UserRole } from '@/types'
+
+// 扩展路由元信息类型
+declare module 'vue-router' {
+    interface RouteMeta {
+        title?: string
+        requiresAuth?: boolean
+        requiredRole?: UserRole
+        requiredRoles?: UserRole[]
+    }
+}
 
 const routes: RouteRecordRaw[] = [
     {
@@ -43,6 +54,75 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/RankingPage.vue'),
         meta: { title: '排行榜', requiresAuth: false },
     },
+    {
+        path: '/user-debug',
+        name: 'UserDebug',
+        component: () => import('@/views/UserDebug.vue'),
+        meta: { title: '用户信息调试', requiresAuth: false },
+    },
+    // ==================== 学生功能 ====================
+    {
+        path: '/my-courses',
+        name: 'MyCourses',
+        component: () => import('@/views/student/MyCourses.vue'),
+        meta: { title: '我的课程', requiresAuth: true },
+    },
+    {
+        path: '/my-homework',
+        name: 'MyHomework',
+        component: () => import('@/views/student/MyHomework.vue'),
+        meta: { title: '我的作业', requiresAuth: true },
+    },
+    {
+        path: '/join-class',
+        name: 'JoinClass',
+        component: () => import('@/views/student/JoinClass.vue'),
+        meta: { title: '加入班级', requiresAuth: true },
+    },
+    // ==================== 教师功能 ====================
+    {
+        path: '/teacher/courses',
+        name: 'TeacherCourses',
+        component: () => import('@/views/teacher/CourseManage.vue'),
+        meta: { title: '课程管理', requiresAuth: true, requiredRole: UserRole.TEACHER },
+    },
+    {
+        path: '/teacher/classes',
+        name: 'TeacherClasses',
+        component: () => import('@/views/teacher/ClassManage.vue'),
+        meta: { title: '班级管理', requiresAuth: true, requiredRole: UserRole.TEACHER },
+    },
+    {
+        path: '/teacher/homework',
+        name: 'TeacherHomework',
+        component: () => import('@/views/teacher/HomeworkManage.vue'),
+        meta: { title: '作业管理', requiresAuth: true, requiredRole: UserRole.TEACHER },
+    },
+    {
+        path: '/teacher/students',
+        name: 'TeacherStudents',
+        component: () => import('@/views/teacher/StudentManage.vue'),
+        meta: { title: '学生管理', requiresAuth: true, requiredRole: UserRole.TEACHER },
+    },
+    // ==================== 管理员功能 ====================
+    {
+        path: '/admin/users',
+        name: 'AdminUsers',
+        component: () => import('@/views/admin/UserManage.vue'),
+        meta: { title: '用户管理', requiresAuth: true, requiredRole: UserRole.ADMIN },
+    },
+    {
+        path: '/admin/problems',
+        name: 'AdminProblems',
+        component: () => import('@/views/admin/ProblemManage.vue'),
+        meta: { title: '题目管理', requiresAuth: true, requiredRole: UserRole.ADMIN },
+    },
+    {
+        path: '/admin/system',
+        name: 'AdminSystem',
+        component: () => import('@/views/admin/SystemSettings.vue'),
+        meta: { title: '系统设置', requiresAuth: true, requiredRole: UserRole.ADMIN },
+    },
 ]
 
 const router = createRouter({
@@ -55,19 +135,39 @@ router.beforeEach((to, _from, next) => {
     // 设置页面标题
     document.title = (to.meta.title as string) || 'Royuki Cloud OJ'
 
-    // 检查是否需要登录
     const userStore = useUserStore()
     const requiresAuth = to.meta.requiresAuth
+    const requiredRole = to.meta.requiredRole
+    const requiredRoles = to.meta.requiredRoles
 
+    // 1. 检查是否需要登录
     if (requiresAuth && !userStore.isLoggedIn) {
         ElMessage.warning('请先登录')
         next('/login')
-    } else if (to.path === '/login' && userStore.isLoggedIn) {
-        // 已登录用户访问登录页，重定向到题库
-        next('/problems')
-    } else {
-        next()
+        return
     }
+
+    // 2. 已登录用户访问登录页，重定向到题库
+    if (to.path === '/login' && userStore.isLoggedIn) {
+        next('/problems')
+        return
+    }
+
+    // 3. 检查单一角色权限
+    if (requiredRole && !userStore.canAccess(requiredRole)) {
+        ElMessage.error('您没有权限访问此页面')
+        next('/problems')
+        return
+    }
+
+    // 4. 检查多角色权限（满足任一即可）
+    if (requiredRoles && !userStore.hasAnyRole(requiredRoles)) {
+        ElMessage.error('您没有权限访问此页面')
+        next('/problems')
+        return
+    }
+
+    next()
 })
 
 export default router

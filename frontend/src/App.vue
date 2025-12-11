@@ -17,7 +17,7 @@
             <el-icon><List /></el-icon>
             <span>题库</span>
           </el-menu-item>
-          <el-menu-item index="/submissions">
+          <el-menu-item index="/submissions" v-if="userStore.isLoggedIn">
             <el-icon><Document /></el-icon>
             <span>提交历史</span>
           </el-menu-item>
@@ -25,6 +25,40 @@
             <el-icon><TrophyBase /></el-icon>
             <span>排行榜</span>
           </el-menu-item>
+
+          <!-- 学生专属菜单 -->
+          <el-sub-menu index="student" v-if="userStore.isStudent">
+            <template #title>
+              <el-icon><Reading /></el-icon>
+              <span>学生功能</span>
+            </template>
+            <el-menu-item index="/my-courses">我的课程</el-menu-item>
+            <el-menu-item index="/my-homework">我的作业</el-menu-item>
+            <el-menu-item index="/join-class">加入班级</el-menu-item>
+          </el-sub-menu>
+
+          <!-- 教师专属菜单 -->
+          <el-sub-menu index="teacher" v-if="userStore.hasMinRole(UserRole.TEACHER)">
+            <template #title>
+              <el-icon><Management /></el-icon>
+              <span>教学管理</span>
+            </template>
+            <el-menu-item index="/teacher/courses">课程管理</el-menu-item>
+            <el-menu-item index="/teacher/classes">班级管理</el-menu-item>
+            <el-menu-item index="/teacher/homework">作业管理</el-menu-item>
+            <el-menu-item index="/teacher/students">学生管理</el-menu-item>
+          </el-sub-menu>
+
+          <!-- 管理员专属菜单 -->
+          <el-sub-menu index="admin" v-if="userStore.isAdmin">
+            <template #title>
+              <el-icon><Setting /></el-icon>
+              <span>系统管理</span>
+            </template>
+            <el-menu-item index="/admin/users">用户管理</el-menu-item>
+            <el-menu-item index="/admin/problems">题目管理</el-menu-item>
+            <el-menu-item index="/admin/system">系统设置</el-menu-item>
+          </el-sub-menu>
         </el-menu>
 
         <div class="user-section">
@@ -40,7 +74,7 @@
               <template #dropdown>
                 <el-dropdown-menu>
                   <el-dropdown-item disabled>
-                    <el-tag size="small">{{ userStore.userInfo?.role }}</el-tag>
+                    <el-tag size="small" :type="getRoleTagType()">{{ getRoleText() }}</el-tag>
                   </el-dropdown-item>
                   <el-dropdown-item divided @click="handleLogout">
                     <el-icon><SwitchButton /></el-icon>
@@ -77,8 +111,12 @@ import {
   User,
   ArrowDown,
   SwitchButton,
+  Reading,
+  Management,
+  Setting,
 } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
+import { UserRole, UserRoleText } from '@/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -91,6 +129,28 @@ const activeMenu = computed(() => {
 })
 
 const isLoginPage = computed(() => route.path === '/login')
+
+// 获取角色文本
+const getRoleText = () => {
+  const role = userStore.userInfo?.role
+  if (!role) return '未知'
+  return UserRoleText[role as UserRole] || role
+}
+
+// 获取角色标签类型
+const getRoleTagType = () => {
+  const role = userStore.userInfo?.role
+  switch (role) {
+    case UserRole.ADMIN:
+      return 'danger'
+    case UserRole.TEACHER:
+      return 'warning'
+    case UserRole.STUDENT:
+      return 'success'
+    default:
+      return 'info'
+  }
+}
 
 const handleLogout = async () => {
   try {

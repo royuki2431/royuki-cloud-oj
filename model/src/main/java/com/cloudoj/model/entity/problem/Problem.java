@@ -59,6 +59,16 @@ public class Problem implements Serializable {
     private String difficulty;
     
     /**
+     * 题目分类
+     */
+    private String category;
+    
+    /**
+     * 题目标签（JSON数组）
+     */
+    private String tags;
+    
+    /**
      * 时间限制（毫秒）
      */
     private Integer timeLimit;

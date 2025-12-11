@@ -53,4 +53,35 @@ public interface ProblemService {
      * 更新提交统计
      */
     void updateSubmitCount(Long id, Boolean isAccepted);
+    
+    // ==================== 管理员功能 ====================
+    
+    /**
+     * 获取题目列表（管理员）
+     * @param keyword 搜索关键词
+     * @param difficulty 难度
+     * @param category 分类
+     * @param status 状态
+     * @param offset 偏移量
+     * @param limit 数量
+     * @return 题目列表
+     */
+    List<Problem> getProblemListAdmin(String keyword, String difficulty, String category, Integer status, int offset, int limit);
+    
+    /**
+     * 统计题目数量
+     * @param keyword 搜索关键词
+     * @param difficulty 难度
+     * @param category 分类
+     * @param status 状态
+     * @return 题目数量
+     */
+    int countProblems(String keyword, String difficulty, String category, Integer status);
+    
+    /**
+     * 更新题目状态
+     * @param problemId 题目ID
+     * @param status 状态
+     */
+    void updateProblemStatus(Long problemId, Integer status);
 }

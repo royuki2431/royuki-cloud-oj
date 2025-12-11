@@ -1,5 +1,8 @@
 package com.cloudoj.judge.controller;
 
+import com.cloudoj.common.annotation.RequireLogin;
+import com.cloudoj.common.annotation.RequireRole;
+import com.cloudoj.common.context.UserContext;
 import com.cloudoj.judge.service.JudgeService;
 import com.cloudoj.model.common.Result;
 import com.cloudoj.model.dto.judge.SubmitCodeRequest;
@@ -36,14 +39,18 @@ public class JudgeController {
     }
     
     /**
-     * 提交代码
+     * 提交代码（需要登录）
      */
+    @RequireLogin
     @PostMapping("/submit")
     public Result<Long> submitCode(@Valid @RequestBody SubmitCodeRequest request, 
                                      HttpServletRequest httpRequest) {
-        // 模拟从JWT中获取用户ID（实际应该从Token解析）
-        if (request.getUserId() == null) {
-            request.setUserId(1L); // 默认用户ID
+        // 从用户上下文获取用户ID
+        Long userId = UserContext.getUserId();
+        if (userId != null) {
+            request.setUserId(userId);
+        } else if (request.getUserId() == null) {
+            return Result.error("请先登录");
         }
         
         // 获取IP地址
@@ -104,8 +111,9 @@ public class JudgeController {
     }
     
     /**
-     * 重新评测
+     * 重新评测（需要管理员权限）
      */
+    @RequireRole({"ADMIN", "SUPER_ADMIN", "TEACHER"})
     @PostMapping("/rejudge/{submissionId}")
     public Result<JudgeResultVO> rejudge(@PathVariable Long submissionId) {
         JudgeResultVO result = judgeService.executeJudge(submissionId);

@@ -1,0 +1,121 @@
+# 压力测试配置 - 针对100并发用户优化
+# 使用方式: --spring.profiles.active=stress
+
+server:
+  tomcat:
+    # 增加线程池大小以处理高并发
+    threads:
+      max: 200
+      min-spare: 50
+    # 连接队列大小
+    accept-count: 200
+    # 最大连接数
+    max-connections: 300
+    # 连接超时
+    connection-timeout: 30000
+
+spring:
+  # 数据源优化
+  datasource:
+    druid:
+      # 连接池大小 - 支持100并发
+      initial-size: 20
+      min-idle: 20
+      max-active: 100
+      # 获取连接超时
+      max-wait: 30000
+      # 连接有效性检测
+      validation-query: SELECT 1
+      test-while-idle: true
+      test-on-borrow: false
+      test-on-return: false
+      # 空闲连接回收
+      time-between-eviction-runs-millis: 60000
+      min-evictable-idle-time-millis: 300000
+      # 连接泄漏检测
+      remove-abandoned: true
+      remove-abandoned-timeout: 180
+      log-abandoned: true
+  
+  # RabbitMQ 优化
+  rabbitmq:
+    listener:
+      simple:
+        # 并发消费者数量 - 根据容器池大小调整
+        concurrency: 5
+        max-concurrency: 10
+        # 预取数量
+        prefetch: 1
+        # 手动确认
+        acknowledge-mode: manual
+        # 重试配置
+        retry:
+          enabled: true
+          initial-interval: 1000
+          max-attempts: 3
+          max-interval: 10000
+          multiplier: 2
+    # 发布确认
+    publisher-confirm-type: correlated
+    publisher-returns: true
+  
+  # Redis 缓存优化
+  data:
+    redis:
+      lettuce:
+        pool:
+          max-active: 50
+          max-idle: 20
+          min-idle: 10
+          max-wait: 5000ms
+
+# 评测服务配置
+judge:
+  # Docker 容器池配置
+  container-pool:
+    # 是否启用容器池
+    enabled: true
+    # 每种语言的容器数量
+    pool-size: 3
+    # 容器空闲超时（分钟）
+    idle-timeout: 30
+  
+  # 评测超时配置
+  timeout:
+    compile: 30000
+    execute: 10000
+  
+  # 资源限制
+  resource:
+    memory-limit: 256MB
+    cpu-limit: 1
+  
+  # 限流配置 - 压力测试时放宽或禁用
+  rate-limit:
+    # 是否启用限流（压力测试时可设为false）
+    enabled: false
+    # 每分钟最大提交次数
+    max-per-minute: 100
+    # 每小时最大提交次数
+    max-per-hour: 1000
+
+# 日志配置 - 压测时减少日志输出
+logging:
+  level:
+    root: WARN
+    com.cloudoj.judge: INFO
+    com.cloudoj.judge.sandbox: DEBUG
+    org.springframework.amqp: WARN
+
+# Actuator 监控端点
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    tags:
+      application: judge-service

@@ -12,7 +12,7 @@ import org.springframework.security.web.SecurityFilterChain;
 
 /**
  * Spring Security配置类
- * 仅用于BCrypt密码加密，不启用认证功能
+ * 认证由Gateway统一处理，这里只做基本配置
  */
 @Configuration
 @EnableWebSecurity
@@ -29,7 +29,7 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            // 禁用CSRF
+            // 禁用CSRF（前后端分离）
             .csrf(AbstractHttpConfigurer::disable)
             // 禁用默认的登录页面
             .formLogin(AbstractHttpConfigurer::disable)
@@ -39,18 +39,9 @@ public class SecurityConfig {
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             )
-            // 配置请求授权
+            // 配置请求授权（认证由Gateway处理，这里放行所有请求）
+            // 权限控制在Controller层通过UserContext判断
             .authorizeHttpRequests(auth -> auth
-                // 放行注册和登录接口
-                .requestMatchers(
-                    "/user/register",
-                    "/user/login",
-                    "/user/health",
-                    "/user/test",
-                    "/actuator/**",
-                    "/error"
-                ).permitAll()
-                // 其他请求也暂时放行（后续可以添加JWT验证）
                 .anyRequest().permitAll()
             );
         

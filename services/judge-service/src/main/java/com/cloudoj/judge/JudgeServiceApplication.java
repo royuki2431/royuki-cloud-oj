@@ -9,7 +9,7 @@ import org.springframework.cloud.openfeign.EnableFeignClients;
 /**
  * 评测服务启动类
  */
-@SpringBootApplication
+@SpringBootApplication(scanBasePackages = {"com.cloudoj.judge", "com.cloudoj.common"})
 @EnableDiscoveryClient  // 启用服务发现
 @EnableFeignClients     // 启用Feign客户端
 @MapperScan("com.cloudoj.judge.mapper")  // 扫描Mapper接口

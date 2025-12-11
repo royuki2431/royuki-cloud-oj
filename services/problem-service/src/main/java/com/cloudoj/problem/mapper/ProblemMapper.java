@@ -68,4 +68,24 @@ public interface ProblemMapper {
      * 更新提交统计
      */
     int updateSubmitCount(@Param("id") Long id, @Param("isAccepted") Boolean isAccepted);
+    
+    // ==================== 管理员功能 ====================
+    
+    /**
+     * 查询题目列表（管理员）
+     */
+    List<Problem> selectProblemListAdmin(@Param("keyword") String keyword,
+                                         @Param("difficulty") String difficulty,
+                                         @Param("category") String category,
+                                         @Param("status") Integer status,
+                                         @Param("offset") int offset,
+                                         @Param("limit") int limit);
+    
+    /**
+     * 统计题目数量
+     */
+    int countProblems(@Param("keyword") String keyword,
+                      @Param("difficulty") String difficulty,
+                      @Param("category") String category,
+                      @Param("status") Integer status);
 }

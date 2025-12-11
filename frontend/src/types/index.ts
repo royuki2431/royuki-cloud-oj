@@ -106,13 +106,46 @@ export interface ApiResponse<T = any> {
 
 // ==================== 用户相关 ====================
 
+// 用户角色枚举
+export enum UserRole {
+    STUDENT = 'STUDENT',
+    TEACHER = 'TEACHER',
+    ADMIN = 'ADMIN',
+}
+
+// 角色文本映射
+export const UserRoleText: Record<UserRole, string> = {
+    [UserRole.STUDENT]: '学生',
+    [UserRole.TEACHER]: '教师',
+    [UserRole.ADMIN]: '管理员',
+}
+
+// 角色权限等级（数字越大权限越高）
+export const UserRoleLevel: Record<UserRole, number> = {
+    [UserRole.STUDENT]: 1,
+    [UserRole.TEACHER]: 2,
+    [UserRole.ADMIN]: 3,
+}
+
 // 用户信息
 export interface User {
     id: number
     username: string
     email: string
-    role: 'STUDENT' | 'TEACHER' | 'ADMIN'
-    createdTime: string
+    phone?: string
+    realName?: string
+    avatar?: string
+    role: UserRole | string
+    status?: number
+    school?: string
+    studentId?: string
+    grade?: string
+    major?: string
+    createTime?: string
+    createdTime?: string  // 兼容字段
+    updateTime?: string
+    lastLoginTime?: string
+    lastLoginIp?: string
 }
 
 // 登录请求
@@ -144,16 +177,31 @@ export interface Problem {
     title: string
     description: string
     difficulty: 'EASY' | 'MEDIUM' | 'HARD'
-    tags: string[]
+    category?: string
+    tags: string | string[]  // 后端存储为JSON字符串，前端使用时为数组
     timeLimit: number
     memoryLimit: number
     inputFormat?: string
     outputFormat?: string
     sampleInput?: string
     sampleOutput?: string
+    hint?: string
+    status?: number
     acceptCount: number
     submitCount: number
     createdTime: string
+}
+
+// 测试用例
+export interface TestCase {
+    id: number
+    problemId: number
+    input: string
+    output: string
+    isSample: number  // 是否为样例：1-是 0-否
+    score: number
+    orderNum: number
+    createTime?: string
 }
 
 // 难度文本映射
@@ -181,4 +229,64 @@ export interface RankingItem {
     totalSubmissions: number
     acceptRate: number
     score: number
+}
+
+// ==================== 课程相关 ====================
+
+// 课程
+export interface Course {
+    id: number
+    courseName: string
+    description?: string
+    teacherId: number
+    teacherName?: string
+    startTime?: string
+    endTime?: string
+    status: number
+    createdTime: string
+}
+
+// 班级
+export interface CourseClass {
+    id: number
+    courseId: number
+    className: string
+    description?: string
+    teacherId: number
+    inviteCode: string
+    maxStudents?: number
+    currentStudents: number
+    createdTime: string
+}
+
+// 作业
+export interface Homework {
+    id: number
+    courseId: number
+    classId?: number
+    title: string
+    description?: string
+    teacherId: number
+    startTime?: string
+    endTime?: string
+    totalScore: number
+    status: number
+    createdTime: string
+}
+
+// 作业题目
+export interface HomeworkProblem {
+    id: number
+    homeworkId: number
+    problemId: number
+    score: number
+    orderNum: number
+}
+
+// 学生作业信息
+export interface StudentHomework {
+    homework: Homework
+    submissionCount: number
+    isCompleted: boolean
+    earnedScore?: number
 }

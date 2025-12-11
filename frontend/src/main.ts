@@ -2,6 +2,7 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
+import { permission, minRole } from './directives/permission'
 
 // Element Plus样式
 import 'element-plus/dist/index.css'
@@ -34,6 +35,10 @@ self.MonacoEnvironment = {
 
 const app = createApp(App)
 const pinia = createPinia()
+
+// 注册全局指令
+app.directive('permission', permission)
+app.directive('min-role', minRole)
 
 app.use(pinia)
 app.use(router)

@@ -13,6 +13,8 @@
         <result column="sample_output" jdbcType="VARCHAR" property="sampleOutput" />
         <result column="hint" jdbcType="VARCHAR" property="hint" />
         <result column="difficulty" jdbcType="VARCHAR" property="difficulty" />
+        <result column="category" jdbcType="VARCHAR" property="category" />
+        <result column="tags" jdbcType="VARCHAR" property="tags" />
         <result column="time_limit" jdbcType="INTEGER" property="timeLimit" />
         <result column="memory_limit" jdbcType="INTEGER" property="memoryLimit" />
         <result column="languages" jdbcType="VARCHAR" property="languages" />
@@ -24,13 +26,14 @@
         <result column="is_public" jdbcType="INTEGER" property="isPublic" />
         <result column="created_time" jdbcType="TIMESTAMP" property="createTime" />
         <result column="updated_time" jdbcType="TIMESTAMP" property="updateTime" />
+        <result column="deleted" jdbcType="INTEGER" property="deleted" />
     </resultMap>
     
     <!-- 基础列 -->
     <sql id="Base_Column_List">
         id, title, description, input_format, output_format, sample_input, sample_output,
-        hint, difficulty, time_limit, memory_limit, languages, source, author_id,
-        accept_count, submit_count, status, is_public, created_time, updated_time
+        hint, difficulty, category, tags, time_limit, memory_limit, languages, source, author_id,
+        accept_count, submit_count, status, is_public, created_time, updated_time, deleted
     </sql>
     
     <!-- 根据主键查询 -->
@@ -39,7 +42,7 @@
         <include refid="Base_Column_List" />
         FROM problem
         WHERE id = #{id,jdbcType=BIGINT}
-        AND status = 1
+        AND deleted = 0
     </select>
     
     <!-- 查询所有（分页） -->
@@ -47,9 +50,10 @@
         SELECT 
         <include refid="Base_Column_List" />
         FROM problem
-        WHERE status = 1
+        WHERE deleted = 0
+        AND status = 1
         AND is_public = 1
-        ORDER BY created_time DESC
+        ORDER BY id ASC
         <if test="offset != null and limit != null">
             LIMIT #{offset}, #{limit}
         </if>
@@ -60,10 +64,11 @@
         SELECT 
         <include refid="Base_Column_List" />
         FROM problem
-        WHERE difficulty = #{difficulty,jdbcType=VARCHAR}
+        WHERE deleted = 0
+        AND difficulty = #{difficulty,jdbcType=VARCHAR}
         AND status = 1
         AND is_public = 1
-        ORDER BY created_time DESC
+        ORDER BY id ASC
         <if test="offset != null and limit != null">
             LIMIT #{offset}, #{limit}
         </if>
@@ -74,10 +79,11 @@
         SELECT 
         <include refid="Base_Column_List" />
         FROM problem
-        WHERE title LIKE CONCAT('%', #{title,jdbcType=VARCHAR}, '%')
+        WHERE deleted = 0
+        AND title LIKE CONCAT('%', #{title,jdbcType=VARCHAR}, '%')
         AND status = 1
         AND is_public = 1
-        ORDER BY created_time DESC
+        ORDER BY id ASC
         <if test="offset != null and limit != null">
             LIMIT #{offset}, #{limit}
         </if>
@@ -87,7 +93,8 @@
     <select id="countAll" resultType="java.lang.Long">
         SELECT COUNT(*)
         FROM problem
-        WHERE status = 1
+        WHERE deleted = 0
+        AND status = 1
         AND is_public = 1
     </select>
     
@@ -104,6 +111,8 @@
             <if test="sampleOutput != null">sample_output,</if>
             <if test="hint != null">hint,</if>
             <if test="difficulty != null">difficulty,</if>
+            <if test="category != null">category,</if>
+            <if test="tags != null">tags,</if>
             <if test="timeLimit != null">time_limit,</if>
             <if test="memoryLimit != null">memory_limit,</if>
             <if test="languages != null">languages,</if>
@@ -122,6 +131,8 @@
             <if test="sampleOutput != null">#{sampleOutput,jdbcType=VARCHAR},</if>
             <if test="hint != null">#{hint,jdbcType=VARCHAR},</if>
             <if test="difficulty != null">#{difficulty,jdbcType=VARCHAR},</if>
+            <if test="category != null">#{category,jdbcType=VARCHAR},</if>
+            <if test="tags != null">#{tags,jdbcType=VARCHAR},</if>
             <if test="timeLimit != null">#{timeLimit,jdbcType=INTEGER},</if>
             <if test="memoryLimit != null">#{memoryLimit,jdbcType=INTEGER},</if>
             <if test="languages != null">#{languages,jdbcType=VARCHAR},</if>
@@ -173,6 +184,8 @@
             <if test="sampleOutput != null">sample_output = #{sampleOutput,jdbcType=VARCHAR},</if>
             <if test="hint != null">hint = #{hint,jdbcType=VARCHAR},</if>
             <if test="difficulty != null">difficulty = #{difficulty,jdbcType=VARCHAR},</if>
+            <if test="category != null">category = #{category,jdbcType=VARCHAR},</if>
+            <if test="tags != null">tags = #{tags,jdbcType=VARCHAR},</if>
             <if test="timeLimit != null">time_limit = #{timeLimit,jdbcType=INTEGER},</if>
             <if test="memoryLimit != null">memory_limit = #{memoryLimit,jdbcType=INTEGER},</if>
             <if test="languages != null">languages = #{languages,jdbcType=VARCHAR},</if>
@@ -207,10 +220,10 @@
         WHERE id = #{id,jdbcType=BIGINT}
     </update>
     
-    <!-- 根据主键删除 -->
+    <!-- 根据主键删除（逻辑删除） -->
     <delete id="deleteByPrimaryKey" parameterType="java.lang.Long">
         UPDATE problem
-        SET status = 0,
+        SET deleted = 1,
             updated_time = NOW()
         WHERE id = #{id,jdbcType=BIGINT}
     </delete>
@@ -225,5 +238,48 @@
             updated_time = NOW()
         WHERE id = #{id,jdbcType=BIGINT}
     </update>
+    
+    <!-- ==================== 管理员功能 ==================== -->
+    
+    <!-- 查询题目列表（管理员） -->
+    <select id="selectProblemListAdmin" resultMap="BaseResultMap">
+        SELECT 
+        <include refid="Base_Column_List" />
+        FROM problem
+        WHERE deleted = 0
+        <if test="keyword != null and keyword != ''">
+            AND title LIKE CONCAT('%', #{keyword}, '%')
+        </if>
+        <if test="difficulty != null and difficulty != ''">
+            AND difficulty = #{difficulty,jdbcType=VARCHAR}
+        </if>
+        <if test="category != null and category != ''">
+            AND category = #{category,jdbcType=VARCHAR}
+        </if>
+        <if test="status != null">
+            AND status = #{status,jdbcType=INTEGER}
+        </if>
+        ORDER BY id ASC
+        LIMIT #{offset}, #{limit}
+    </select>
+    
+    <!-- 统计题目数量 -->
+    <select id="countProblems" resultType="int">
+        SELECT COUNT(*)
+        FROM problem
+        WHERE deleted = 0
+        <if test="keyword != null and keyword != ''">
+            AND title LIKE CONCAT('%', #{keyword}, '%')
+        </if>
+        <if test="difficulty != null and difficulty != ''">
+            AND difficulty = #{difficulty,jdbcType=VARCHAR}
+        </if>
+        <if test="category != null and category != ''">
+            AND category = #{category,jdbcType=VARCHAR}
+        </if>
+        <if test="status != null">
+            AND status = #{status,jdbcType=INTEGER}
+        </if>
+    </select>
     
 </mapper>

@@ -55,7 +55,12 @@ spring:
   cloud:
     nacos:
       server-addr: 127.0.0.1:8848
+      discovery:
+        namespace: 9ce1c13a-2b73-476a-b4d5-f209aecba12a
+        group: DEFAULT_GROUP
       config:
+        namespace: 9ce1c13a-2b73-476a-b4d5-f209aecba12a
+        group: DEFAULT_GROUP
         import-check:
           enabled: false
 

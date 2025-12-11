@@ -33,4 +33,9 @@ public class SubmitCodeRequest {
      */
     @NotBlank(message = "代码不能为空")
     private String code;
+    
+    /**
+     * 作业ID（可选，如果是作业提交则需要填写）
+     */
+    private Long homeworkId;
 }

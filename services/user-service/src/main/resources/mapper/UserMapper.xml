@@ -180,4 +180,43 @@
         WHERE id = #{userId,jdbcType=BIGINT}
     </update>
     
+    <!-- ==================== 管理员功能 ==================== -->
+    
+    <!-- 查询用户列表 -->
+    <select id="selectUserList" resultMap="BaseResultMap">
+        SELECT 
+        <include refid="Base_Column_List" />
+        FROM user
+        WHERE deleted = 0
+        <if test="keyword != null and keyword != ''">
+            AND (username LIKE CONCAT('%', #{keyword}, '%') 
+            OR email LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        <if test="role != null and role != ''">
+            AND role = #{role,jdbcType=VARCHAR}
+        </if>
+        <if test="status != null">
+            AND status = #{status,jdbcType=INTEGER}
+        </if>
+        ORDER BY created_time DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+    
+    <!-- 统计用户数量 -->
+    <select id="countUsers" resultType="int">
+        SELECT COUNT(*)
+        FROM user
+        WHERE deleted = 0
+        <if test="keyword != null and keyword != ''">
+            AND (username LIKE CONCAT('%', #{keyword}, '%') 
+            OR email LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        <if test="role != null and role != ''">
+            AND role = #{role,jdbcType=VARCHAR}
+        </if>
+        <if test="status != null">
+            AND status = #{status,jdbcType=INTEGER}
+        </if>
+    </select>
+    
 </mapper>

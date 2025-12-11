@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cloudoj.problem.mapper.TestCaseMapper">
+    
+    <!-- 结果映射 -->
+    <resultMap id="BaseResultMap" type="com.cloudoj.model.entity.problem.TestCase">
+        <id column="id" jdbcType="BIGINT" property="id" />
+        <result column="problem_id" jdbcType="BIGINT" property="problemId" />
+        <result column="input" jdbcType="VARCHAR" property="input" />
+        <result column="output" jdbcType="VARCHAR" property="output" />
+        <result column="is_sample" jdbcType="TINYINT" property="isSample" />
+        <result column="score" jdbcType="INTEGER" property="score" />
+        <result column="order_num" jdbcType="INTEGER" property="orderNum" />
+        <result column="created_time" jdbcType="TIMESTAMP" property="createTime" />
+    </resultMap>
+    
+    <!-- 基础字段列表 -->
+    <sql id="Base_Column_List">
+        id, problem_id, input, output, is_sample, score, order_num, created_time
+    </sql>
+    
+    <!-- 根据题目ID查询测试用例 -->
+    <select id="selectByProblemId" resultMap="BaseResultMap">
+        SELECT 
+        <include refid="Base_Column_List" />
+        FROM test_case
+        WHERE problem_id = #{problemId}
+        ORDER BY order_num ASC, id ASC
+    </select>
+    
+    <!-- 根据题目ID查询样例测试用例 -->
+    <select id="selectSamplesByProblemId" resultMap="BaseResultMap">
+        SELECT 
+        <include refid="Base_Column_List" />
+        FROM test_case
+        WHERE problem_id = #{problemId}
+        AND is_sample = 1
+        ORDER BY order_num ASC, id ASC
+    </select>
+    
+    <!-- 根据ID查询测试用例 -->
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT 
+        <include refid="Base_Column_List" />
+        FROM test_case
+        WHERE id = #{id}
+    </select>
+    
+    <!-- 插入测试用例 -->
+    <insert id="insert" parameterType="com.cloudoj.model.entity.problem.TestCase"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO test_case (
+            problem_id, input, output, is_sample, score, order_num
+        ) VALUES (
+            #{problemId}, #{input}, #{output}, #{isSample}, #{score}, #{orderNum}
+        )
+    </insert>
+    
+    <!-- 批量插入测试用例 -->
+    <insert id="batchInsert">
+        INSERT INTO test_case (
+            problem_id, input, output, is_sample, score, order_num
+        ) VALUES
+        <foreach collection="list" item="item" separator=",">
+            (
+                #{item.problemId}, #{item.input}, #{item.output}, 
+                #{item.isSample}, #{item.score}, #{item.orderNum}
+            )
+        </foreach>
+    </insert>
+    
+    <!-- 更新测试用例 -->
+    <update id="update" parameterType="com.cloudoj.model.entity.problem.TestCase">
+        UPDATE test_case
+        SET 
+            input = #{input},
+            output = #{output},
+            is_sample = #{isSample},
+            score = #{score},
+            order_num = #{orderNum}
+        WHERE id = #{id}
+    </update>
+    
+    <!-- 删除题目的所有测试用例 -->
+    <delete id="deleteByProblemId">
+        DELETE FROM test_case
+        WHERE problem_id = #{problemId}
+    </delete>
+    
+    <!-- 删除测试用例 -->
+    <delete id="deleteById">
+        DELETE FROM test_case
+        WHERE id = #{id}
+    </delete>
+    
+    <!-- 统计测试用例数量 -->
+    <select id="countByProblemId" resultType="int">
+        SELECT COUNT(*)
+        FROM test_case
+        WHERE problem_id = #{problemId}
+    </select>
+    
+</mapper>

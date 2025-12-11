@@ -7,7 +7,12 @@ spring:
   cloud:
     nacos:
       server-addr: 127.0.0.1:8848
+      discovery:
+        namespace: 9ce1c13a-2b73-476a-b4d5-f209aecba12a
+        group: DEFAULT_GROUP
       config:
+        namespace: 9ce1c13a-2b73-476a-b4d5-f209aecba12a
+        group: DEFAULT_GROUP
         import-check:
           enabled: false
     
@@ -58,6 +63,12 @@ spring:
             - Path=/api/course/**
           filters:
             - StripPrefix=1
+        
+        # WebSocket 路由（评测结果推送）
+        - id: judge-websocket
+          uri: lb://judge-service
+          predicates:
+            - Path=/ws/judge/**
       
       # 全局CORS配置
       globalcors:
@@ -78,6 +89,29 @@ spring:
 jwt:
   secret: cloudoj-secret-key-2024-very-long-and-secure-string-for-jwt-token-generation
   expire-time: 86400000
+
+# 认证配置
+auth:
+  whitelist:
+    # 用户服务 - 登录注册
+    - /api/user/login
+    - /api/user/register
+    - /api/user/health
+    - /api/user/test
+    # 题库服务 - 公开接口
+    - /api/problem/list
+    - /api/problem/detail/**
+    - /api/problem/*/detail
+    # 评测服务 - 健康检查
+    - /api/judge/health
+    # Actuator 端点
+    - /actuator/**
+    # Swagger/OpenAPI
+    - /swagger-ui/**
+    - /v3/api-docs/**
+    - /swagger-resources/**
+    # WebSocket 端点
+    - /ws/**
 
 # 日志配置
 logging:

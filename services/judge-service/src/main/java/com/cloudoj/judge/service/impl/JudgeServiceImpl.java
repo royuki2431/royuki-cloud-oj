@@ -4,9 +4,11 @@ import com.cloudoj.judge.config.RabbitMQConfig;
 import com.cloudoj.judge.mapper.SubmissionMapper;
 import com.cloudoj.judge.service.JudgeService;
 import com.cloudoj.judge.service.SubmitRateLimiter;
+import com.cloudoj.model.common.Result;
 import com.cloudoj.model.dto.judge.JudgeMessage;
 import com.cloudoj.model.dto.judge.SubmitCodeRequest;
 import com.cloudoj.model.entity.judge.Submission;
+import com.cloudoj.model.entity.problem.TestCase;
 import com.cloudoj.model.enums.JudgeStatusEnum;
 import com.cloudoj.model.vo.judge.JudgeResultVO;
 import com.cloudoj.model.vo.judge.SubmissionVO;
@@ -14,7 +16,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -47,7 +52,11 @@ public class JudgeServiceImpl implements JudgeService {
     private com.cloudoj.judge.sandbox.SandboxFactory sandboxFactory;
     
     @Autowired
+    @org.springframework.beans.factory.annotation.Qualifier("loadBalancedRestTemplate")
     private org.springframework.web.client.RestTemplate restTemplate;
+    
+    @Autowired
+    private com.cloudoj.judge.service.JudgeNotificationService notificationService;
     
     // Redis缓存key前缀
     private static final String SUBMISSION_CACHE_PREFIX = "submission:";
@@ -73,6 +82,7 @@ public class JudgeServiceImpl implements JudgeService {
         submission.setCode(request.getCode());
         submission.setStatus(JudgeStatusEnum.PENDING.getCode());
         submission.setIpAddress(ipAddress);
+        submission.setHomeworkId(request.getHomeworkId()); // 保存作业ID
         
         // 保存到数据库
         submissionMapper.insert(submission);
@@ -117,6 +127,10 @@ public class JudgeServiceImpl implements JudgeService {
         submission.setStatus(JudgeStatusEnum.JUDGING.getCode());
         submissionMapper.updateJudgeResult(submission);
         
+        // 推送评测开始状态
+        notificationService.notifyStatus(submission.getUserId(), submissionId, 
+                JudgeStatusEnum.JUDGING.getCode(), "评测中...");
+        
         // 执行评测
         JudgeResultVO result;
         if (sandboxFactory != null) {
@@ -158,8 +172,16 @@ public class JudgeServiceImpl implements JudgeService {
         // 更新题目统计（提交次数和通过次数）
         updateProblemStatistics(submission.getProblemId(), "ACCEPTED".equals(result.getStatus()));
         
+        // 如果是作业提交，记录到course-service
+        if (submission.getHomeworkId() != null) {
+            recordHomeworkSubmission(submission, result);
+        }
+        
         // 清除缓存，让下次查询能获取最新结果
         clearSubmissionCache(submissionId);
+        
+        // 通过 WebSocket 推送评测结果给用户
+        notificationService.notifyUser(submission.getUserId(), result);
         
         log.info("评测完成, submissionId={}, status={}, score={}", 
                 submissionId, result.getStatus(), result.getScore());
@@ -196,28 +218,37 @@ public class JudgeServiceImpl implements JudgeService {
             result.setTimeUsed((int) judgeResult.getTimeUsed());
             result.setMemoryUsed((int) judgeResult.getMemoryUsed());
             result.setErrorMessage(judgeResult.getErrorMessage());
-            result.setPassRate(String.format("%.2f%%", 
-                    100.0 * judgeResult.getPassedTestCases() / judgeResult.getTotalTestCases()));
             
-            // 转换测试用例结果详情，同时关联输入数据
+            // 计算通过率（避免除零）
+            int totalTestCases = judgeResult.getTotalTestCases();
+            if (totalTestCases > 0) {
+                result.setPassRate(String.format("%.2f%%", 
+                        100.0 * judgeResult.getPassedTestCases() / totalTestCases));
+            } else {
+                result.setPassRate("0.00%");
+            }
+            
+            // 转换测试用例结果详情（编译错误时 testCaseResults 可能为 null）
             List<JudgeResultVO.TestCaseResultVO> testCaseResults = new ArrayList<>();
             List<com.cloudoj.judge.sandbox.LanguageSandbox.TestCaseResult> results = judgeResult.getTestCaseResults();
-            for (int i = 0; i < results.size(); i++) {
-                com.cloudoj.judge.sandbox.LanguageSandbox.TestCaseResult tcr = results.get(i);
-                JudgeResultVO.TestCaseResultVO vo = new JudgeResultVO.TestCaseResultVO();
-                vo.setTestCaseId(tcr.getTestCaseId());
-                // 根据passed字段转换为status
-                vo.setStatus(tcr.isPassed() ? "ACCEPTED" : "WRONG_ANSWER");
-                vo.setTimeUsed(tcr.getTimeUsed());
-                vo.setMemoryUsed(tcr.getMemoryUsed());
-                // 从testCases获取input（如果索引对应）
-                if (i < testCases.size()) {
-                    vo.setInput(testCases.get(i).getInput());
+            if (results != null && !results.isEmpty()) {
+                for (int i = 0; i < results.size(); i++) {
+                    com.cloudoj.judge.sandbox.LanguageSandbox.TestCaseResult tcr = results.get(i);
+                    JudgeResultVO.TestCaseResultVO vo = new JudgeResultVO.TestCaseResultVO();
+                    vo.setTestCaseId(tcr.getTestCaseId());
+                    // 根据passed字段转换为status
+                    vo.setStatus(tcr.isPassed() ? "ACCEPTED" : "WRONG_ANSWER");
+                    vo.setTimeUsed(tcr.getTimeUsed());
+                    vo.setMemoryUsed(tcr.getMemoryUsed());
+                    // 从testCases获取input（如果索引对应）
+                    if (i < testCases.size()) {
+                        vo.setInput(testCases.get(i).getInput());
+                    }
+                    vo.setExpectedOutput(tcr.getExpectedOutput());
+                    vo.setActualOutput(tcr.getActualOutput());
+                    vo.setErrorMessage(tcr.getErrorMessage());
+                    testCaseResults.add(vo);
                 }
-                vo.setExpectedOutput(tcr.getExpectedOutput());
-                vo.setActualOutput(tcr.getActualOutput());
-                vo.setErrorMessage(tcr.getErrorMessage());
-                testCaseResults.add(vo);
             }
             result.setTestCaseResults(testCaseResults);
             
@@ -234,25 +265,69 @@ public class JudgeServiceImpl implements JudgeService {
     }
     
     /**
-     * 获取模拟测试用例（临时方案，待集成problem-service）
+     * 获取测试用例（从problem-service）
      */
     private List<com.cloudoj.model.dto.judge.JudgeTestCase> getMockTestCases(Long problemId) {
-        // TODO: 从problem-service获取真实测试用例
+        try {
+            // 调用problem-service获取测试用例（通过服务名，直接调用不走网关）
+            String url = "http://problem-service/problem/" + problemId + "/testcases";
+            log.info("从problem-service获取测试用例：url={}", url);
+            
+            ResponseEntity<Result<List<TestCase>>> response = restTemplate.exchange(
+                url,
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<Result<List<TestCase>>>() {}
+            );
+            
+            if (response.getBody() == null || response.getBody().getData() == null) {
+                log.error("获取测试用例失败：problemId={}, response={}", problemId, response);
+                return getFallbackTestCases(problemId);
+            }
+            
+            List<TestCase> testCases = response.getBody().getData();
+            log.info("成功获取测试用例：problemId={}, count={}", problemId, testCases.size());
+            
+            // 转换为JudgeTestCase
+            return testCases.stream()
+                .map(tc -> com.cloudoj.model.dto.judge.JudgeTestCase.builder()
+                    .id(tc.getId())
+                    .input(tc.getInput())
+                    .output(tc.getOutput())
+                    .score(tc.getScore() != null ? tc.getScore() : 20) // 默认20分
+                    .timeLimit(5000)  // 5秒，可以从Problem中获取
+                    .memoryLimit(256) // 256MB，可以从Problem中获取
+                    .build())
+                .collect(Collectors.toList());
+            
+        } catch (Exception e) {
+            log.error("调用problem-service失败，使用降级数据：problemId={}", problemId, e);
+            return getFallbackTestCases(problemId);
+        }
+    }
+    
+    /**
+     * 降级测试用例（当problem-service不可用时）
+     */
+    private List<com.cloudoj.model.dto.judge.JudgeTestCase> getFallbackTestCases(Long problemId) {
+        log.warn("使用降级测试用例：problemId={}", problemId);
         List<com.cloudoj.model.dto.judge.JudgeTestCase> testCases = new ArrayList<>();
         
         // 示例：两数之和问题的测试用例
         testCases.add(com.cloudoj.model.dto.judge.JudgeTestCase.builder()
                 .id(1L)
-                .input("2 7\n9")
+                .input("2 7 11 15\n9")
                 .output("0 1")
+                .score(20)
                 .timeLimit(5000)
                 .memoryLimit(256)
                 .build());
         
         testCases.add(com.cloudoj.model.dto.judge.JudgeTestCase.builder()
                 .id(2L)
-                .input("3 2\n3")
-                .output("0 1")
+                .input("3 2 4\n6")
+                .output("1 2")
+                .score(20)
                 .timeLimit(5000)
                 .memoryLimit(256)
                 .build());
@@ -452,6 +527,31 @@ public class JudgeServiceImpl implements JudgeService {
         } catch (Exception e) {
             log.error("更新题目统计失败, problemId={}, isAccepted={}", problemId, isAccepted, e);
             // 统计更新失败不影响评测结果，只记录日志
+        }
+    }
+    
+    /**
+     * 记录作业提交到course-service
+     */
+    private void recordHomeworkSubmission(Submission submission, JudgeResultVO result) {
+        try {
+            String url = "http://course-service/course/homework/recordSubmission";
+            
+            java.util.Map<String, Object> params = new java.util.HashMap<>();
+            params.put("homeworkId", submission.getHomeworkId());
+            params.put("studentId", submission.getUserId());
+            params.put("problemId", submission.getProblemId());
+            params.put("judgeSubmissionId", submission.getId());
+            params.put("score", result.getScore() != null ? result.getScore() : 0);
+            params.put("status", result.getStatus());
+            
+            restTemplate.postForObject(url, params, com.cloudoj.model.common.Result.class);
+            log.info("记录作业提交成功, homeworkId={}, studentId={}, problemId={}, score={}", 
+                    submission.getHomeworkId(), submission.getUserId(), submission.getProblemId(), result.getScore());
+        } catch (Exception e) {
+            log.error("记录作业提交失败, homeworkId={}, studentId={}", 
+                    submission.getHomeworkId(), submission.getUserId(), e);
+            // 记录失败不影响评测结果，只记录日志
         }
     }
     

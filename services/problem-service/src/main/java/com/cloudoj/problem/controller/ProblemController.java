@@ -2,6 +2,8 @@ package com.cloudoj.problem.controller;
 
 import com.cloudoj.model.common.Result;
 import com.cloudoj.model.entity.problem.Problem;
+import com.cloudoj.model.entity.problem.TestCase;
+import com.cloudoj.problem.mapper.TestCaseMapper;
 import com.cloudoj.problem.service.ProblemService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 题库服务控制器
@@ -22,6 +25,9 @@ public class ProblemController {
     
     @Autowired
     ProblemService problemService;
+    
+    @Autowired
+    TestCaseMapper testCaseMapper;
     
     /**
      * 健康检查
@@ -176,5 +182,66 @@ public class ProblemController {
         }
         
         return Result.success(result);
+    }
+    
+    // ===================== 测试用例相关API =====================
+    
+    /**
+     * 获取题目的所有测试用例（供judge-service内部调用）
+     * @param id 题目ID
+     * @return 测试用例列表
+     */
+    @GetMapping("/{id}/testcases")
+    public Result<List<TestCase>> getTestCases(@PathVariable Long id) {
+        log.info("获取题目测试用例：problemId={}", id);
+        List<TestCase> testCases = testCaseMapper.selectByProblemId(id);
+        return Result.success(testCases);
+    }
+    
+    /**
+     * 获取题目的样例测试用例（供普通用户查看）
+     * @param id 题目ID
+     * @return 样例测试用例列表
+     */
+    @GetMapping("/{id}/samples")
+    public Result<List<TestCase>> getSampleTestCases(@PathVariable Long id) {
+        log.info("获取题目样例：problemId={}", id);
+        List<TestCase> samples = testCaseMapper.selectSamplesByProblemId(id);
+        return Result.success(samples);
+    }
+    
+    /**
+     * 管理员：批量保存测试用例
+     * @param id 题目ID
+     * @param testCases 测试用例列表
+     * @return 成功消息
+     */
+    @PostMapping("/{id}/testcases")
+    public Result<Void> saveTestCases(
+            @PathVariable Long id,
+            @RequestBody List<TestCase> testCases) {
+        log.info("保存测试用例：problemId={}, count={}", id, testCases.size());
+        
+        // 先删除旧的测试用例
+        testCaseMapper.deleteByProblemId(id);
+        
+        // 设置problemId并插入新的测试用例
+        if (testCases != null && !testCases.isEmpty()) {
+            testCases.forEach(tc -> tc.setProblemId(id));
+            testCaseMapper.batchInsert(testCases);
+        }
+        
+        return Result.success("保存成功", null);
+    }
+    
+    /**
+     * 统计题目的测试用例数量
+     * @param id 题目ID
+     * @return 测试用例数量
+     */
+    @GetMapping("/{id}/testcases/count")
+    public Result<Integer> getTestCaseCount(@PathVariable Long id) {
+        int count = testCaseMapper.countByProblemId(id);
+        return Result.success(count);
     }
 }

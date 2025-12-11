@@ -38,4 +38,9 @@ public class JudgeTestCase {
      * 内存限制（MB）
      */
     private Integer memoryLimit;
+    
+    /**
+     * 测试用例分值
+     */
+    private Integer score;
 }
