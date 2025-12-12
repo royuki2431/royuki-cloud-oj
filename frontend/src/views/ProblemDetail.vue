@@ -95,14 +95,15 @@
                 <span><el-icon><Edit /></el-icon> 代码编辑</span>
               </template>
               <div class="editor-container">
-                <div class="editor-header">
-                  <div class="info">
-                    <el-text type="info" size="small">
-                      <el-icon><InfoFilled /></el-icon>
-                      代码将自动保存到本地
-                    </el-text>
+                <!-- 编辑器控制栏 -->
+                <div class="editor-controls">
+                  <div class="controls-left">
+                    <span class="auto-save-hint">
+                      <el-icon><Clock /></el-icon>
+                      代码自动保存到本地
+                    </span>
                   </div>
-                  <div class="controls">
+                  <div class="controls-right">
                     <el-select
                       v-model="selectedLanguage"
                       placeholder="选择语言"
@@ -115,10 +116,7 @@
                         :value="lang"
                       />
                     </el-select>
-                    <el-button
-                      @click="resetCode"
-                      :disabled="submitting"
-                    >
+                    <el-button @click="resetCode" :disabled="submitting">
                       重置代码
                     </el-button>
                     <el-button
@@ -136,7 +134,7 @@
                 <MonacoEditor
                   v-model="code"
                   :language="LanguageMonaco[selectedLanguage]"
-                  height="calc(100vh - 360px)"
+                  height="calc(100vh - 340px)"
                 />
               </div>
             </el-tab-pane>
@@ -160,18 +158,21 @@
     <el-dialog
       v-model="resultDialogVisible"
       title="评测结果"
-      width="600px"
+      width="800px"
       :close-on-click-modal="false"
     >
       <div v-if="judgeResult" class="judge-result">
+        <!-- 总体结果 -->
         <el-descriptions :column="2" border>
           <el-descriptions-item label="状态">
-            <el-tag :type="JudgeStatusType[judgeResult.status]">
+            <el-tag :type="JudgeStatusType[judgeResult.status]" size="large">
               {{ JudgeStatusText[judgeResult.status] }}
             </el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="得分">
-            <span class="score">{{ judgeResult.score }}分</span>
+            <span class="score" :class="{ 'full-score': judgeResult.score === 100 }">
+              {{ judgeResult.score }}分
+            </span>
           </el-descriptions-item>
           <el-descriptions-item label="运行时间">
             {{ judgeResult.timeUsed ? `${judgeResult.timeUsed}ms` : '-' }}
@@ -189,6 +190,7 @@
           </el-descriptions-item>
         </el-descriptions>
 
+        <!-- 错误信息 -->
         <el-alert
           v-if="judgeResult.errorMessage"
           :title="judgeResult.errorMessage"
@@ -197,6 +199,69 @@
           show-icon
           style="margin-top: 16px"
         />
+
+        <!-- 测试用例详细结果 -->
+        <div v-if="judgeResult.testCaseResults && judgeResult.testCaseResults.length > 0" class="testcase-results">
+          <el-divider content-position="left">
+            <el-icon><Document /></el-icon>
+            测试用例详情
+          </el-divider>
+          
+          <el-collapse v-model="expandedTestCases">
+            <el-collapse-item 
+              v-for="(tc, index) in judgeResult.testCaseResults" 
+              :key="tc.testCaseId"
+              :name="index"
+            >
+              <template #title>
+                <div class="testcase-header">
+                  <el-tag 
+                    :type="JudgeStatusType[tc.status]" 
+                    size="small"
+                    effect="dark"
+                  >
+                    {{ JudgeStatusText[tc.status] }}
+                  </el-tag>
+                  <span class="testcase-title">测试用例 #{{ index + 1 }}</span>
+                  <span class="testcase-stats">
+                    <el-icon><Timer /></el-icon> {{ tc.timeUsed }}ms
+                    <el-icon style="margin-left: 12px;"><Cpu /></el-icon> {{ (tc.memoryUsed / 1024).toFixed(2) }}MB
+                  </span>
+                </div>
+              </template>
+              
+              <div class="testcase-detail">
+                <!-- 输入 -->
+                <div class="detail-section" v-if="tc.input">
+                  <div class="detail-label">输入：</div>
+                  <pre class="detail-content">{{ tc.input }}</pre>
+                </div>
+                
+                <!-- 期望输出 -->
+                <div class="detail-section" v-if="tc.expectedOutput">
+                  <div class="detail-label">期望输出：</div>
+                  <pre class="detail-content expected">{{ tc.expectedOutput }}</pre>
+                </div>
+                
+                <!-- 实际输出 -->
+                <div class="detail-section" v-if="tc.actualOutput">
+                  <div class="detail-label">实际输出：</div>
+                  <pre class="detail-content" :class="{ 'correct': tc.status === JudgeStatus.ACCEPTED, 'wrong': tc.status !== JudgeStatus.ACCEPTED }">{{ tc.actualOutput }}</pre>
+                </div>
+                
+                <!-- 错误信息 -->
+                <el-alert
+                  v-if="tc.errorMessage"
+                  :title="tc.errorMessage"
+                  type="error"
+                  :closable="false"
+                  show-icon
+                  style="margin-top: 8px"
+                />
+              </div>
+            </el-collapse-item>
+          </el-collapse>
+        </div>
       </div>
 
       <div v-else class="judging">
@@ -213,7 +278,7 @@
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Loading, Edit, Document, InfoFilled, Upload } from '@element-plus/icons-vue'
+import { Loading, Edit, Document, Upload, Timer, Cpu, Clock } from '@element-plus/icons-vue'
 import MonacoEditor from '@/components/MonacoEditor.vue'
 import SubmissionHistory from '@/components/SubmissionHistory.vue'
 import { getProblemById, getSampleTestCases } from '@/api/problem'
@@ -232,6 +297,7 @@ import {
   type Problem,
   type JudgeResult,
   type TestCase,
+  type TestCaseResult,
 } from '@/types'
 
 const route = useRoute()
@@ -254,6 +320,7 @@ const resultDialogVisible = ref(false)
 const judgeResult = ref<JudgeResult | null>(null)
 const judgeStatus = ref<string>('')  // 评测状态文本
 const currentSubmissionId = ref<number | null>(null)
+const expandedTestCases = ref<number[]>([])  // 展开的测试用例
 
 // 标签页
 const activeTab = ref('editor')
@@ -424,11 +491,27 @@ const handleSubmit = async () => {
           judgeResult.value = {
             submissionId: resultMsg.submissionId,
             status: resultMsg.status as JudgeStatus,
+            statusDesc: resultMsg.statusDesc,
             score: resultMsg.score,
             timeUsed: resultMsg.timeUsed,
             memoryUsed: resultMsg.memoryUsed,
             passRate: resultMsg.passRate,
-            errorMessage: resultMsg.errorMessage,
+            errorMessage: resultMsg.errorMessage || undefined,
+            testCaseResults: resultMsg.testCaseResults?.map(tc => ({
+              testCaseId: tc.testCaseId,
+              status: tc.status as JudgeStatus,
+              timeUsed: tc.timeUsed,
+              memoryUsed: tc.memoryUsed,
+              input: tc.input,
+              expectedOutput: tc.expectedOutput,
+              actualOutput: tc.actualOutput,
+              errorMessage: tc.errorMessage || undefined,
+            })),
+          }
+          // 默认展开第一个失败的测试用例
+          if (resultMsg.testCaseResults) {
+            const failedIndex = resultMsg.testCaseResults.findIndex(tc => tc.status !== 'ACCEPTED')
+            expandedTestCases.value = failedIndex >= 0 ? [failedIndex] : []
           }
           submitting.value = false
           // 刷新提交历史
@@ -560,24 +643,36 @@ onUnmounted(() => {
 }
 
 .editor-container {
-  .editor-header {
+  .editor-controls {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 16px;
-    padding: 12px;
+    margin-bottom: 12px;
+    padding: 10px 12px;
     background: #f5f7fa;
     border-radius: 4px;
 
-    .info {
+    .controls-left {
       display: flex;
       align-items: center;
-      gap: 4px;
     }
 
-    .controls {
+    .controls-right {
       display: flex;
+      align-items: center;
       gap: 12px;
+    }
+
+    .auto-save-hint {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: #909399;
+      
+      .el-icon {
+        font-size: 14px;
+      }
     }
   }
 }
@@ -587,6 +682,84 @@ onUnmounted(() => {
     font-size: 24px;
     font-weight: bold;
     color: #409eff;
+    
+    &.full-score {
+      color: #67c23a;
+    }
+  }
+  
+  .testcase-results {
+    margin-top: 16px;
+    
+    .testcase-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      
+      .testcase-title {
+        font-weight: 500;
+        color: #303133;
+      }
+      
+      .testcase-stats {
+        margin-left: auto;
+        font-size: 12px;
+        color: #909399;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+    }
+    
+    .testcase-detail {
+      padding: 12px;
+      background: #fafafa;
+      border-radius: 4px;
+      
+      .detail-section {
+        margin-bottom: 12px;
+        
+        &:last-child {
+          margin-bottom: 0;
+        }
+        
+        .detail-label {
+          font-size: 12px;
+          color: #909399;
+          margin-bottom: 4px;
+          font-weight: 500;
+        }
+        
+        .detail-content {
+          margin: 0;
+          padding: 10px 12px;
+          background: #f5f7fa;
+          border-radius: 4px;
+          font-family: 'Courier New', Courier, monospace;
+          font-size: 13px;
+          line-height: 1.5;
+          white-space: pre-wrap;
+          word-break: break-all;
+          border-left: 3px solid #dcdfe6;
+          
+          &.expected {
+            border-left-color: #409eff;
+            background: #ecf5ff;
+          }
+          
+          &.correct {
+            border-left-color: #67c23a;
+            background: #f0f9eb;
+          }
+          
+          &.wrong {
+            border-left-color: #f56c6c;
+            background: #fef0f0;
+          }
+        }
+      }
+    }
   }
 }
 

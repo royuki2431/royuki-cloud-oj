@@ -154,7 +154,14 @@ public class JudgeController {
      */
     public Result<Long> submitCodeBlockHandler(SubmitCodeRequest request, HttpServletRequest httpRequest, BlockException ex) {
         log.warn("提交代码触发限流: userId={}, rule={}", request.getUserId(), ex.getRule());
-        return Result.error(429, "系统繁忙，请稍后重试");
+        
+        java.util.Map<String, Object> errorInfo = new java.util.HashMap<>();
+        errorInfo.put("type", "FLOW_LIMIT");
+        errorInfo.put("resource", "submitCode");
+        errorInfo.put("retryAfter", 3);
+        errorInfo.put("hint", "提交过于频繁，请等待几秒后重试");
+        
+        return Result.error(429, "提交过于频繁，请稍后重试");
     }
     
     /**
@@ -162,6 +169,13 @@ public class JudgeController {
      */
     public Result<Long> submitCodeFallback(SubmitCodeRequest request, HttpServletRequest httpRequest, Throwable ex) {
         log.error("提交代码服务降级: userId={}, error={}", request.getUserId(), ex.getMessage());
+        
+        java.util.Map<String, Object> errorInfo = new java.util.HashMap<>();
+        errorInfo.put("type", "SERVICE_DEGRADE");
+        errorInfo.put("resource", "submitCode");
+        errorInfo.put("retryAfter", 10);
+        errorInfo.put("hint", "评测服务正在恢复中，请稍后重试");
+        
         return Result.error(503, "评测服务暂时不可用，请稍后重试");
     }
     
@@ -170,6 +184,13 @@ public class JudgeController {
      */
     public Result<JudgeResultVO> getResultBlockHandler(Long submissionId, BlockException ex) {
         log.warn("查询评测结果触发限流: submissionId={}", submissionId);
+        
+        java.util.Map<String, Object> errorInfo = new java.util.HashMap<>();
+        errorInfo.put("type", "FLOW_LIMIT");
+        errorInfo.put("resource", "getResult");
+        errorInfo.put("retryAfter", 2);
+        errorInfo.put("hint", "查询过于频繁，请稍等片刻");
+        
         return Result.error(429, "查询过于频繁，请稍后重试");
     }
 }

@@ -55,6 +55,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '排行榜', requiresAuth: false },
     },
     {
+        path: '/profile',
+        name: 'Profile',
+        component: () => import('@/views/UserProfile.vue'),
+        meta: { title: '个人中心', requiresAuth: true },
+    },
+    {
         path: '/user-debug',
         name: 'UserDebug',
         component: () => import('@/views/UserDebug.vue'),
@@ -78,6 +84,24 @@ const routes: RouteRecordRaw[] = [
         name: 'JoinClass',
         component: () => import('@/views/student/JoinClass.vue'),
         meta: { title: '加入班级', requiresAuth: true },
+    },
+    {
+        path: '/wrong-problems',
+        name: 'WrongProblems',
+        component: () => import('@/views/student/WrongProblems.vue'),
+        meta: { title: '错题本', requiresAuth: true },
+    },
+    {
+        path: '/learning-notes',
+        name: 'LearningNotes',
+        component: () => import('@/views/student/LearningNotes.vue'),
+        meta: { title: '学习笔记', requiresAuth: true },
+    },
+    {
+        path: '/learning-stats',
+        name: 'LearningStats',
+        component: () => import('@/views/student/LearningStats.vue'),
+        meta: { title: '学习统计', requiresAuth: true },
     },
     // ==================== 教师功能 ====================
     {

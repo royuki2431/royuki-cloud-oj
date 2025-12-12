@@ -1,7 +1,9 @@
 package com.cloudoj.user.service;
 
+import com.cloudoj.model.dto.user.ChangePasswordRequest;
 import com.cloudoj.model.dto.user.LoginRequest;
 import com.cloudoj.model.dto.user.RegisterRequest;
+import com.cloudoj.model.dto.user.UpdateUserRequest;
 import com.cloudoj.model.entity.user.User;
 import com.cloudoj.model.vo.user.LoginVO;
 
@@ -104,4 +106,18 @@ public interface UserService {
      * @return 是否成功
      */
     boolean deleteUser(Long userId);
+    
+    // ==================== 用户自助功能 ====================
+    
+    /**
+     * 更新用户信息（用户自己更新）
+     * @param request 更新请求
+     */
+    void updateUserInfo(UpdateUserRequest request);
+    
+    /**
+     * 修改密码
+     * @param request 修改密码请求
+     */
+    void changePassword(ChangePasswordRequest request);
 }

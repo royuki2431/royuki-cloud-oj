@@ -1,8 +1,10 @@
 package com.cloudoj.user.controller;
 
 import com.cloudoj.model.common.Result;
+import com.cloudoj.model.dto.user.ChangePasswordRequest;
 import com.cloudoj.model.dto.user.LoginRequest;
 import com.cloudoj.model.dto.user.RegisterRequest;
+import com.cloudoj.model.dto.user.UpdateUserRequest;
 import com.cloudoj.model.vo.user.LoginVO;
 import com.cloudoj.user.service.UserService;
 import lombok.RequiredArgsConstructor;
@@ -61,6 +63,26 @@ public class UserController {
             user.setPassword(null);
         }
         return Result.success(user);
+    }
+    
+    /**
+     * 更新用户信息
+     */
+    @PutMapping("/info")
+    public Result<Void> updateUserInfo(@Validated @RequestBody UpdateUserRequest request) {
+        log.info("更新用户信息：userId={}", request.getId());
+        userService.updateUserInfo(request);
+        return Result.success("更新成功", null);
+    }
+    
+    /**
+     * 修改密码
+     */
+    @PutMapping("/password")
+    public Result<Void> changePassword(@Validated @RequestBody ChangePasswordRequest request) {
+        log.info("修改密码：userId={}", request.getUserId());
+        userService.changePassword(request);
+        return Result.success("密码修改成功", null);
     }
     
     /**

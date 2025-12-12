@@ -35,6 +35,9 @@
             <el-menu-item index="/my-courses">我的课程</el-menu-item>
             <el-menu-item index="/my-homework">我的作业</el-menu-item>
             <el-menu-item index="/join-class">加入班级</el-menu-item>
+            <el-menu-item index="/wrong-problems">错题本</el-menu-item>
+            <el-menu-item index="/learning-notes">学习笔记</el-menu-item>
+            <el-menu-item index="/learning-stats">学习统计</el-menu-item>
           </el-sub-menu>
 
           <!-- 教师专属菜单 -->
@@ -76,7 +79,11 @@
                   <el-dropdown-item disabled>
                     <el-tag size="small" :type="getRoleTagType()">{{ getRoleText() }}</el-tag>
                   </el-dropdown-item>
-                  <el-dropdown-item divided @click="handleLogout">
+                  <el-dropdown-item divided @click="router.push('/profile')">
+                    <el-icon><UserFilled /></el-icon>
+                    个人中心
+                  </el-dropdown-item>
+                  <el-dropdown-item @click="handleLogout">
                     <el-icon><SwitchButton /></el-icon>
                     退出登录
                   </el-dropdown-item>
@@ -109,6 +116,7 @@ import {
   Document,
   TrophyBase,
   User,
+  UserFilled,
   ArrowDown,
   SwitchButton,
   Reading,

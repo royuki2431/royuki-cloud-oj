@@ -26,7 +26,7 @@ spring:
         fallback:
           mode: response
           response-status: 429
-          response-body: '{"code":429,"message":"请求过于频繁，请稍后重试","data":null}'
+          response-body: '{"code":429,"message":"请求过于频繁，请稍后重试","data":{"type":"GATEWAY_FLOW_LIMIT","retryAfter":3,"hint":"系统繁忙，请稍后重试"},"timestamp":0}'
           content-type: application/json
     
     # Gateway路由配置

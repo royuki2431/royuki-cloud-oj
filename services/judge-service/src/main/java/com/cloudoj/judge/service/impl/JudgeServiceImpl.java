@@ -4,6 +4,7 @@ import com.cloudoj.judge.config.RabbitMQConfig;
 import com.cloudoj.judge.feign.CourseServiceClient;
 import com.cloudoj.judge.feign.ProblemServiceClient;
 import com.cloudoj.judge.mapper.SubmissionMapper;
+import com.cloudoj.judge.service.AntiCheatService;
 import com.cloudoj.judge.service.JudgeService;
 import com.cloudoj.judge.service.SubmitRateLimiter;
 import com.cloudoj.model.common.Result;
@@ -65,6 +66,9 @@ public class JudgeServiceImpl implements JudgeService {
     
     @Autowired
     private com.cloudoj.judge.service.JudgeNotificationService notificationService;
+    
+    @Autowired
+    private com.cloudoj.judge.service.AntiCheatService antiCheatService;
     
     // Redis缓存key前缀
     private static final String SUBMISSION_CACHE_PREFIX = "submission:";
@@ -263,6 +267,39 @@ public class JudgeServiceImpl implements JudgeService {
             log.info("Docker评测完成: submissionId={}, status={}, score={}, testCases={}/{}", 
                     submission.getId(), result.getStatus(), result.getScore(),
                     judgeResult.getPassedTestCases(), judgeResult.getTotalTestCases());
+            
+            // 防作弊检测：只要有得分就检测（防止部分硬编码得分）
+            if (result.getScore() > 0) {
+                try {
+                    // 将 JudgeTestCase 转换为 TestCase 用于检测
+                    List<TestCase> testCasesForCheck = new ArrayList<>();
+                    for (com.cloudoj.model.dto.judge.JudgeTestCase jtc : testCases) {
+                        TestCase tc = new TestCase();
+                        tc.setId(jtc.getId());
+                        tc.setInput(jtc.getInput());
+                        tc.setOutput(jtc.getOutput());
+                        testCasesForCheck.add(tc);
+                    }
+                    
+                    AntiCheatService.CheatDetectionResult cheatResult = antiCheatService.detectHardcodedOutput(
+                            submission.getCode(), submission.getLanguage(), testCasesForCheck);
+                    
+                    if (cheatResult.isCheatDetected()) {
+                        // 检测到作弊，将结果标记为作弊
+                        log.warn("检测到作弊行为: submissionId={}, type={}", submission.getId(), cheatResult.getCheatType());
+                        result.setStatus(JudgeStatusEnum.WRONG_ANSWER.getCode());
+                        result.setStatusDesc("检测到作弊行为");
+                        result.setScore(0);
+                        result.setErrorMessage("检测到硬编码输出作弊，请使用正确的算法解决问题");
+                    } else if (cheatResult.isSuspicious()) {
+                        // 可疑但未确定，记录日志但不影响结果
+                        log.info("可疑提交: submissionId={}, message={}", submission.getId(), cheatResult.getMessage());
+                    }
+                } catch (Exception e) {
+                    log.error("防作弊检测失败", e);
+                    // 检测失败不影响正常评测结果
+                }
+            }
             
         } catch (Exception e) {
             log.error("Docker评测失败，使用模拟评测", e);
@@ -487,6 +524,20 @@ public class JudgeServiceImpl implements JudgeService {
         
         if (submission.getPassRate() != null) {
             result.setPassRate(submission.getPassRate().toString() + "%");
+        }
+        
+        // 解析测试用例结果详情
+        if (submission.getTestCaseResults() != null && !submission.getTestCaseResults().isEmpty()) {
+            try {
+                com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                List<JudgeResultVO.TestCaseResultVO> testCaseResults = objectMapper.readValue(
+                    submission.getTestCaseResults(),
+                    objectMapper.getTypeFactory().constructCollectionType(List.class, JudgeResultVO.TestCaseResultVO.class)
+                );
+                result.setTestCaseResults(testCaseResults);
+            } catch (Exception e) {
+                log.error("解析测试用例结果失败, submissionId={}", submissionId, e);
+            }
         }
         
         // 只有评测完成的结果才缓存

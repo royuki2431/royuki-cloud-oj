@@ -1,8 +1,10 @@
 package com.cloudoj.user.service.impl;
 
 import com.cloudoj.model.constant.StatusCode;
+import com.cloudoj.model.dto.user.ChangePasswordRequest;
 import com.cloudoj.model.dto.user.LoginRequest;
 import com.cloudoj.model.dto.user.RegisterRequest;
+import com.cloudoj.model.dto.user.UpdateUserRequest;
 import com.cloudoj.model.entity.user.User;
 import com.cloudoj.model.enums.RoleEnum;
 import com.cloudoj.model.vo.user.LoginVO;
@@ -232,5 +234,63 @@ public class UserServiceImpl implements UserService {
         log.info("管理员删除用户成功：userId={}", userId);
         
         return rows > 0;
+    }
+    
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updateUserInfo(UpdateUserRequest request) {
+        // 检查用户是否存在
+        User existUser = getUserById(request.getId());
+        if (existUser == null) {
+            throw new BusinessException(StatusCode.USER_NOT_FOUND, "用户不存在");
+        }
+        
+        // 如果修改了邮箱，检查邮箱是否已被其他用户使用
+        if (request.getEmail() != null && !request.getEmail().equals(existUser.getEmail())) {
+            User emailUser = userMapper.selectByEmail(request.getEmail());
+            if (emailUser != null && !emailUser.getId().equals(request.getId())) {
+                throw new BusinessException(StatusCode.USER_ALREADY_EXISTS, "邮箱已被其他用户使用");
+            }
+        }
+        
+        // 更新用户信息
+        User user = new User();
+        user.setId(request.getId());
+        user.setRealName(request.getRealName());
+        user.setEmail(request.getEmail());
+        user.setPhone(request.getPhone());
+        user.setSchool(request.getSchool());
+        user.setStudentId(request.getStudentId());
+        user.setGrade(request.getGrade());
+        user.setMajor(request.getMajor());
+        user.setAvatar(request.getAvatar());
+        
+        userMapper.updateByPrimaryKeySelective(user);
+        
+        log.info("用户更新个人信息成功：userId={}", request.getId());
+    }
+    
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void changePassword(ChangePasswordRequest request) {
+        // 检查用户是否存在
+        User existUser = getUserById(request.getUserId());
+        if (existUser == null) {
+            throw new BusinessException(StatusCode.USER_NOT_FOUND, "用户不存在");
+        }
+        
+        // 验证原密码
+        if (!passwordEncoder.matches(request.getOldPassword(), existUser.getPassword())) {
+            throw new BusinessException(StatusCode.PASSWORD_ERROR, "原密码错误");
+        }
+        
+        // 更新密码
+        User user = new User();
+        user.setId(request.getUserId());
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        
+        userMapper.updateByPrimaryKeySelective(user);
+        
+        log.info("用户修改密码成功：userId={}", request.getUserId());
     }
 }

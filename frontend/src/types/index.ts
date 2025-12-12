@@ -85,6 +85,18 @@ export interface Submission {
     judgedTime?: string
 }
 
+// 测试用例执行结果
+export interface TestCaseResult {
+    testCaseId: number
+    status: JudgeStatus
+    timeUsed: number
+    memoryUsed: number
+    input?: string
+    expectedOutput?: string
+    actualOutput?: string
+    errorMessage?: string
+}
+
 // 评测结果
 export interface JudgeResult {
     submissionId: number
@@ -95,6 +107,7 @@ export interface JudgeResult {
     memoryUsed?: number
     passRate: string
     errorMessage?: string
+    testCaseResults?: TestCaseResult[]
 }
 
 // API响应
