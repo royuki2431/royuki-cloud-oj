@@ -32,6 +32,16 @@ public class AntiCheatService {
             return result;
         }
         
+        // 检查是否所有测试用例都没有输入（如 Hello World 类题目）
+        boolean hasNoInput = testCases.stream()
+                .allMatch(tc -> tc.getInput() == null || tc.getInput().trim().isEmpty());
+        
+        // 如果题目本身没有输入，跳过输入相关检测
+        if (hasNoInput) {
+            log.debug("题目无输入要求，跳过输入检测");
+            return result;
+        }
+        
         // 1. 检查代码是否读取了输入
         boolean readsInput = checkIfCodeReadsInput(code, language);
         if (!readsInput) {
@@ -83,6 +93,12 @@ public class AntiCheatService {
         }
         
         // 7. 检查输出是否与测试用例高度匹配（原有逻辑，作为补充）
+        // 如果代码有计算逻辑，跳过此检测（避免误判如奇偶判断等简单题目）
+        if (hasCalculation(code)) {
+            log.debug("代码包含计算逻辑，跳过硬编码输出检测");
+            return result;
+        }
+        
         Set<String> codeNumbers = extractNumberLiterals(code);
         int matchedOutputCount = 0;
         List<String> matchedOutputs = new ArrayList<>();
@@ -91,6 +107,13 @@ public class AntiCheatService {
         Set<String> uniqueOutputs = new HashSet<>();
         for (TestCase testCase : testCases) {
             uniqueOutputs.add(testCase.getOutput().trim());
+        }
+        
+        // 如果输出种类很少（如只有2种：Even/Odd, Yes/No等），跳过检测
+        // 因为这类题目代码中必须包含这些输出字符串
+        if (uniqueOutputs.size() <= 3) {
+            log.debug("输出种类较少({}种)，跳过硬编码检测", uniqueOutputs.size());
+            return result;
         }
         
         // 只有当输出多样性足够时才进行硬编码检测
@@ -169,12 +192,38 @@ public class AntiCheatService {
      */
     private boolean checkIfCodeUsesInput(String code, String language) {
         if ("JAVA".equalsIgnoreCase(language)) {
-            // 检查是否有变量接收输入
-            Pattern pattern = Pattern.compile("(\\w+)\\s*=\\s*\\w+\\.(next|read|parseInt|parseLong)");
-            return pattern.matcher(code).find();
+            // 检查是否有变量接收输入（多种形式）
+            // 形式1: int a = sc.nextInt();
+            Pattern pattern1 = Pattern.compile("\\w+\\s+\\w+\\s*=\\s*\\w+\\.(next|read)");
+            if (pattern1.matcher(code).find()) return true;
+            // 形式2: a = sc.nextInt();
+            Pattern pattern2 = Pattern.compile("\\w+\\s*=\\s*\\w+\\.(next|read)");
+            if (pattern2.matcher(code).find()) return true;
+            // 形式3: Integer.parseInt, Long.parseLong 等
+            Pattern pattern3 = Pattern.compile("\\w+\\s*=\\s*(Integer|Long|Double|Float)\\.(parse|value)");
+            if (pattern3.matcher(code).find()) return true;
+            // 形式4: 直接在表达式中使用 sc.nextInt() + sc.nextInt()
+            Pattern pattern4 = Pattern.compile("\\w+\\.(nextInt|nextLong|nextDouble|nextLine)\\s*\\(\\s*\\)\\s*[+\\-*/]");
+            if (pattern4.matcher(code).find()) return true;
+            // 形式5: System.out.println(sc.nextInt() + sc.nextInt())
+            Pattern pattern5 = Pattern.compile("print.*\\(.*\\w+\\.(next|read)");
+            if (pattern5.matcher(code).find()) return true;
+            // 形式6: 变量在输出中使用（如 n % 2, a + b 等）
+            // 检查是否有变量赋值后在后续代码中使用
+            Pattern varAssign = Pattern.compile("(int|long|double|float|String)\\s+(\\w+)\\s*=");
+            Matcher varMatcher = varAssign.matcher(code);
+            while (varMatcher.find()) {
+                String varName = varMatcher.group(2);
+                // 检查变量是否在输出语句中使用
+                if (code.contains("System.out") && code.contains(varName) && 
+                    code.indexOf(varName, varMatcher.end()) > varMatcher.end()) {
+                    return true;
+                }
+            }
+            return false;
         } else if ("PYTHON".equalsIgnoreCase(language)) {
-            // 检查是否有变量接收 input()
-            Pattern pattern = Pattern.compile("(\\w+)\\s*=\\s*.*input\\(");
+            // 检查是否有变量接收 input() 或直接使用
+            Pattern pattern = Pattern.compile("(\\w+\\s*=\\s*.*input\\(|int\\s*\\(\\s*input|float\\s*\\(\\s*input|print\\s*\\(.*input)");
             return pattern.matcher(code).find();
         } else if ("C".equalsIgnoreCase(language) || "CPP".equalsIgnoreCase(language)) {
             // 检查 scanf 是否有变量接收
@@ -223,9 +272,19 @@ public class AntiCheatService {
     }
     
     /**
-     * 检查代码是否只是简单的打印语句
+     * 检查代码是否只是简单的打印语句（没有任何计算逻辑）
      */
     private boolean isSimplePrintOnly(String code, String language) {
+        // 如果代码中包含计算操作符，说明有计算逻辑，不是简单打印
+        if (hasCalculation(code)) {
+            return false;
+        }
+        
+        // 如果代码中读取了输入并在打印中使用，说明有处理逻辑
+        if (hasInputInOutput(code, language)) {
+            return false;
+        }
+        
         // 移除注释和空行后检查
         String cleanCode = removeComments(code, language);
         String[] lines = cleanCode.split("\n");
@@ -240,6 +299,9 @@ public class AntiCheatService {
             // 跳过导入语句、类定义、方法定义等
             if (isBoilerplateLine(line, language)) continue;
             
+            // 跳过输入语句
+            if (isInputStatement(line, language)) continue;
+            
             // 检查是否是打印语句
             if (isPrintStatement(line, language)) {
                 printCount++;
@@ -248,8 +310,90 @@ public class AntiCheatService {
             }
         }
         
-        // 如果打印语句占主导，且没有实质性的其他代码
-        return printCount > 0 && otherCount <= 2;
+        // 如果打印语句占主导，且没有实质性的其他代码，且打印的是硬编码字符串
+        return printCount > 0 && otherCount <= 1 && !hasInputInOutput(code, language);
+    }
+    
+    /**
+     * 检查代码是否包含计算操作
+     */
+    private boolean hasCalculation(String code) {
+        // 检查是否有算术运算（排除字符串中的）
+        // 匹配变量或函数调用后跟运算符
+        Pattern calcPattern = Pattern.compile("\\)\\s*[+\\-*/%]|[+\\-*/%]\\s*\\w+\\.|\\w+\\s*[+\\-*/%]\\s*\\w+");
+        if (calcPattern.matcher(code).find()) return true;
+        
+        // 检查取模运算 (如 n % 2)
+        Pattern modPattern = Pattern.compile("\\w+\\s*%\\s*\\d+");
+        if (modPattern.matcher(code).find()) return true;
+        
+        // 检查比较运算 (如 n == 0, a > b)
+        Pattern comparePattern = Pattern.compile("\\w+\\s*(==|!=|>=|<=|>|<)\\s*\\w+");
+        if (comparePattern.matcher(code).find()) return true;
+        
+        // 检查三元运算符
+        if (code.contains("?") && code.contains(":")) return true;
+        
+        return false;
+    }
+    
+    /**
+     * 检查输出语句中是否使用了输入或变量
+     */
+    private boolean hasInputInOutput(String code, String language) {
+        if ("JAVA".equalsIgnoreCase(language)) {
+            // 检查 System.out.println 中是否包含输入相关调用
+            Pattern pattern1 = Pattern.compile("System\\.out\\.print.*\\(.*\\.(next|read)");
+            if (pattern1.matcher(code).find()) return true;
+            
+            // 检查是否在输出中使用了变量（包括三元运算符等）
+            // 先找到所有定义的变量
+            Pattern varDefPattern = Pattern.compile("(int|long|double|float|String|char|boolean)\\s+(\\w+)\\s*=");
+            Matcher varMatcher = varDefPattern.matcher(code);
+            Set<String> definedVars = new HashSet<>();
+            while (varMatcher.find()) {
+                definedVars.add(varMatcher.group(2));
+            }
+            
+            // 检查输出语句中是否使用了这些变量
+            Pattern printPattern = Pattern.compile("System\\.out\\.print[^;]+");
+            Matcher printMatcher = printPattern.matcher(code);
+            while (printMatcher.find()) {
+                String printStmt = printMatcher.group();
+                for (String var : definedVars) {
+                    // 检查变量是否在打印语句中使用（不在引号内）
+                    if (printStmt.contains(var)) {
+                        // 简单检查：变量后面跟着运算符或空格或括号
+                        Pattern varUsePattern = Pattern.compile("\\b" + var + "\\b(?![\"'])");
+                        if (varUsePattern.matcher(printStmt).find()) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        } else if ("PYTHON".equalsIgnoreCase(language)) {
+            Pattern pattern = Pattern.compile("print\\s*\\(.*input|print\\s*\\([^\"']*[a-zA-Z_]");
+            return pattern.matcher(code).find();
+        } else if ("C".equalsIgnoreCase(language) || "CPP".equalsIgnoreCase(language)) {
+            // C/C++ 通常先读取再输出，检查是否有变量在输出中使用
+            return true; // 默认认为有使用
+        }
+        return false;
+    }
+    
+    /**
+     * 检查是否是输入语句
+     */
+    private boolean isInputStatement(String line, String language) {
+        if ("JAVA".equalsIgnoreCase(language)) {
+            return line.contains("Scanner") || line.contains(".next") || line.contains(".read");
+        } else if ("PYTHON".equalsIgnoreCase(language)) {
+            return line.contains("input(");
+        } else if ("C".equalsIgnoreCase(language) || "CPP".equalsIgnoreCase(language)) {
+            return line.contains("scanf") || line.contains("cin");
+        }
+        return false;
     }
     
     /**
@@ -418,6 +562,20 @@ public class AntiCheatService {
             }
         }
         
+        // 统计三元运算符（等价于 if-else）
+        Pattern ternaryPattern = Pattern.compile("\\?[^?:]+:");
+        Matcher ternaryMatcher = ternaryPattern.matcher(code);
+        while (ternaryMatcher.find()) {
+            complexity += 2; // 三元运算符等价于 if-else
+        }
+        
+        // 统计算术/逻辑运算（表示有计算逻辑）
+        Pattern calcPattern = Pattern.compile("\\w+\\s*[+\\-*/%]\\s*\\w+|\\w+\\s*(==|!=|>=|<=|>|<)\\s*\\w+");
+        Matcher calcMatcher = calcPattern.matcher(code);
+        while (calcMatcher.find()) {
+            complexity++;
+        }
+        
         // 统计函数/方法定义
         if ("JAVA".equalsIgnoreCase(language)) {
             Pattern methodPattern = Pattern.compile("(public|private|protected)?\\s*(static)?\\s*\\w+\\s+\\w+\\s*\\([^)]*\\)\\s*\\{");
@@ -434,6 +592,168 @@ public class AntiCheatService {
         }
         
         return complexity;
+    }
+    
+    /**
+     * 代码安全检查 - 检测危险的系统调用和操作
+     * @param code 用户提交的代码
+     * @param language 编程语言
+     * @return 安全检查结果，如果不安全返回错误信息，安全返回null
+     */
+    public String checkCodeSecurity(String code, String language) {
+        if (code == null || code.isEmpty()) {
+            return null;
+        }
+        
+        if ("C".equalsIgnoreCase(language) || "CPP".equalsIgnoreCase(language)) {
+            return checkCCodeSecurity(code);
+        } else if ("JAVA".equalsIgnoreCase(language)) {
+            return checkJavaCodeSecurity(code);
+        } else if ("PYTHON".equalsIgnoreCase(language)) {
+            return checkPythonCodeSecurity(code);
+        }
+        
+        return null;
+    }
+    
+    /**
+     * C/C++ 代码安全检查
+     */
+    private String checkCCodeSecurity(String code) {
+        // 危险的系统调用
+        String[] dangerousFunctions = {
+            "system", "popen", "exec", "fork", "vfork",
+            "kill", "signal", "raise",
+            "setuid", "setgid", "seteuid", "setegid",
+            "chroot", "chdir", "chmod", "chown",
+            "unlink", "remove", "rmdir", "rename",
+            "socket", "connect", "bind", "listen", "accept",
+            "sendto", "recvfrom", "send", "recv",
+            "mmap", "munmap", "mprotect",
+            "ptrace", "prctl",
+            "dlopen", "dlsym"
+        };
+        
+        for (String func : dangerousFunctions) {
+            // 匹配函数调用（函数名后跟括号）
+            Pattern pattern = Pattern.compile("\\b" + func + "\\s*\\(");
+            if (pattern.matcher(code).find()) {
+                log.warn("C/C++代码安全检查失败: 检测到危险函数 {}", func);
+                return "代码包含禁止使用的系统函数: " + func;
+            }
+        }
+        
+        // 危险的头文件
+        String[] dangerousHeaders = {
+            "sys/socket.h", "netinet/in.h", "arpa/inet.h",
+            "sys/ptrace.h", "dlfcn.h"
+        };
+        
+        for (String header : dangerousHeaders) {
+            if (code.contains("#include") && code.contains(header)) {
+                log.warn("C/C++代码安全检查失败: 检测到危险头文件 {}", header);
+                return "代码包含禁止使用的头文件: " + header;
+            }
+        }
+        
+        // 检查内联汇编
+        if (code.contains("__asm") || code.contains("asm(") || code.contains("asm volatile")) {
+            log.warn("C/C++代码安全检查失败: 检测到内联汇编");
+            return "代码包含禁止使用的内联汇编";
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Java 代码安全检查
+     */
+    private String checkJavaCodeSecurity(String code) {
+        // 危险的类和方法
+        String[] dangerousPatterns = {
+            "Runtime.getRuntime",
+            "ProcessBuilder",
+            "System.exit",
+            "SecurityManager",
+            "ClassLoader",
+            "java.io.File",  // 文件操作需要谨慎
+            "java.net.Socket",
+            "java.net.ServerSocket",
+            "java.net.URL",
+            "java.lang.reflect",
+            "sun.misc.Unsafe"
+        };
+        
+        for (String pattern : dangerousPatterns) {
+            if (code.contains(pattern)) {
+                // 允许 File 用于某些场景，但禁止删除等操作
+                if (pattern.equals("java.io.File")) {
+                    if (code.contains(".delete(") || code.contains(".deleteOnExit(") ||
+                        code.contains(".mkdir(") || code.contains(".createNewFile(")) {
+                        log.warn("Java代码安全检查失败: 检测到危险文件操作");
+                        return "代码包含禁止的文件操作";
+                    }
+                    continue;
+                }
+                log.warn("Java代码安全检查失败: 检测到危险模式 {}", pattern);
+                return "代码包含禁止使用的类或方法: " + pattern;
+            }
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Python 代码安全检查
+     */
+    private String checkPythonCodeSecurity(String code) {
+        // 危险的模块和函数
+        String[] dangerousPatterns = {
+            "import os",
+            "from os",
+            "import subprocess",
+            "from subprocess",
+            "import socket",
+            "from socket",
+            "import shutil",
+            "from shutil",
+            "__import__",
+            "eval(",
+            "exec(",
+            "compile(",
+            "open(",  // 文件操作
+            "os.system",
+            "os.popen",
+            "os.exec",
+            "os.spawn",
+            "os.fork",
+            "os.kill",
+            "os.remove",
+            "os.unlink",
+            "os.rmdir",
+            "subprocess.call",
+            "subprocess.run",
+            "subprocess.Popen"
+        };
+        
+        for (String pattern : dangerousPatterns) {
+            if (code.contains(pattern)) {
+                // open() 用于读取输入是允许的，但需要检查模式
+                if (pattern.equals("open(")) {
+                    // 只允许读取模式
+                    Pattern writePattern = Pattern.compile("open\\s*\\([^)]*['\"][wa]['\"]");
+                    if (writePattern.matcher(code).find()) {
+                        log.warn("Python代码安全检查失败: 检测到文件写入操作");
+                        return "代码包含禁止的文件写入操作";
+                    }
+                    continue;
+                }
+                log.warn("Python代码安全检查失败: 检测到危险模式 {}", pattern);
+                return "代码包含禁止使用的模块或函数: " + pattern;
+            }
+        }
+        
+        return null;
     }
     
     /**

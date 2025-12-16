@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cloudoj.learning.mapper.LearningProgressMapper">
+    
+    <!-- 结果映射 -->
+    <resultMap id="BaseResultMap" type="com.cloudoj.learning.entity.LearningProgress">
+        <id column="id" jdbcType="BIGINT" property="id" />
+        <result column="user_id" jdbcType="BIGINT" property="userId" />
+        <result column="problem_id" jdbcType="BIGINT" property="problemId" />
+        <result column="status" jdbcType="VARCHAR" property="status" />
+        <result column="submit_count" jdbcType="INTEGER" property="submitCount" />
+        <result column="accept_count" jdbcType="INTEGER" property="acceptCount" />
+        <result column="first_submit_time" jdbcType="TIMESTAMP" property="firstSubmitTime" />
+        <result column="last_submit_time" jdbcType="TIMESTAMP" property="lastSubmitTime" />
+        <result column="first_accept_time" jdbcType="TIMESTAMP" property="firstAcceptTime" />
+        <result column="best_score" jdbcType="INTEGER" property="bestScore" />
+        <result column="execution_time" jdbcType="INTEGER" property="executionTime" />
+        <result column="created_time" jdbcType="TIMESTAMP" property="createdTime" />
+        <result column="updated_time" jdbcType="TIMESTAMP" property="updatedTime" />
+    </resultMap>
+    
+    <!-- 基础列 -->
+    <sql id="Base_Column_List">
+        id, user_id, problem_id, status, submit_count, accept_count,
+        first_submit_time, last_submit_time, first_accept_time, best_score, execution_time,
+        created_time, updated_time
+    </sql>
+    
+    <!-- 根据主键查询 -->
+    <select id="selectByPrimaryKey" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM learning_progress
+        WHERE id = #{id,jdbcType=BIGINT}
+    </select>
+    
+    <!-- 根据用户ID和题目ID查询 -->
+    <select id="selectByUserIdAndProblemId" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM learning_progress
+        WHERE user_id = #{userId,jdbcType=BIGINT}
+        AND problem_id = #{problemId,jdbcType=BIGINT}
+    </select>
+    
+    <!-- 根据用户ID查询 -->
+    <select id="selectByUserId" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM learning_progress
+        WHERE user_id = #{userId,jdbcType=BIGINT}
+        ORDER BY updated_time DESC
+    </select>
+    
+    <!-- 根据用户ID和状态查询 -->
+    <select id="selectByUserIdAndStatus" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM learning_progress
+        WHERE user_id = #{userId,jdbcType=BIGINT}
+        AND status = #{status,jdbcType=VARCHAR}
+        ORDER BY updated_time DESC
+    </select>
+    
+    <!-- 插入 -->
+    <insert id="insert" parameterType="com.cloudoj.learning.entity.LearningProgress" 
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO learning_progress (
+            user_id, problem_id, status, submit_count, accept_count,
+            first_submit_time, last_submit_time, first_accept_time, best_score,
+            created_time, updated_time
+        )
+        VALUES (
+            #{userId,jdbcType=BIGINT},
+            #{problemId,jdbcType=BIGINT},
+            #{status,jdbcType=VARCHAR},
+            #{submitCount,jdbcType=INTEGER},
+            #{acceptCount,jdbcType=INTEGER},
+            #{firstSubmitTime,jdbcType=TIMESTAMP},
+            #{lastSubmitTime,jdbcType=TIMESTAMP},
+            #{firstAcceptTime,jdbcType=TIMESTAMP},
+            #{bestScore,jdbcType=INTEGER},
+            NOW(), NOW()
+        )
+    </insert>
+    
+    <!-- 选择性插入 -->
+    <insert id="insertSelective" parameterType="com.cloudoj.learning.entity.LearningProgress" 
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO learning_progress
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="userId != null">user_id,</if>
+            <if test="problemId != null">problem_id,</if>
+            <if test="status != null">status,</if>
+            <if test="submitCount != null">submit_count,</if>
+            <if test="acceptCount != null">accept_count,</if>
+            <if test="firstSubmitTime != null">first_submit_time,</if>
+            <if test="lastSubmitTime != null">last_submit_time,</if>
+            <if test="firstAcceptTime != null">first_accept_time,</if>
+            <if test="bestScore != null">best_score,</if>
+            <if test="executionTime != null">execution_time,</if>
+            created_time, updated_time,
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="userId != null">#{userId,jdbcType=BIGINT},</if>
+            <if test="problemId != null">#{problemId,jdbcType=BIGINT},</if>
+            <if test="status != null">#{status,jdbcType=VARCHAR},</if>
+            <if test="submitCount != null">#{submitCount,jdbcType=INTEGER},</if>
+            <if test="acceptCount != null">#{acceptCount,jdbcType=INTEGER},</if>
+            <if test="firstSubmitTime != null">#{firstSubmitTime,jdbcType=TIMESTAMP},</if>
+            <if test="lastSubmitTime != null">#{lastSubmitTime,jdbcType=TIMESTAMP},</if>
+            <if test="firstAcceptTime != null">#{firstAcceptTime,jdbcType=TIMESTAMP},</if>
+            <if test="bestScore != null">#{bestScore,jdbcType=INTEGER},</if>
+            <if test="executionTime != null">#{executionTime,jdbcType=INTEGER},</if>
+            NOW(), NOW(),
+        </trim>
+    </insert>
+    
+    <!-- 选择性更新 -->
+    <update id="updateByPrimaryKeySelective" parameterType="com.cloudoj.learning.entity.LearningProgress">
+        UPDATE learning_progress
+        <set>
+            <if test="status != null">status = #{status,jdbcType=VARCHAR},</if>
+            <if test="submitCount != null">submit_count = #{submitCount,jdbcType=INTEGER},</if>
+            <if test="acceptCount != null">accept_count = #{acceptCount,jdbcType=INTEGER},</if>
+            <if test="lastSubmitTime != null">last_submit_time = #{lastSubmitTime,jdbcType=TIMESTAMP},</if>
+            <if test="firstAcceptTime != null">first_accept_time = #{firstAcceptTime,jdbcType=TIMESTAMP},</if>
+            <if test="bestScore != null">best_score = #{bestScore,jdbcType=INTEGER},</if>
+            <if test="executionTime != null">execution_time = #{executionTime,jdbcType=INTEGER},</if>
+            updated_time = NOW(),
+        </set>
+        WHERE id = #{id,jdbcType=BIGINT}
+    </update>
+    
+    <!-- 更新学习进度 -->
+    <update id="updateProgress" parameterType="com.cloudoj.learning.entity.LearningProgress">
+        UPDATE learning_progress
+        SET submit_count = submit_count + 1,
+            last_submit_time = NOW(),
+            <if test="acceptCount != null and acceptCount > 0">
+            accept_count = accept_count + 1,
+            status = 'COMPLETED',
+            <if test="firstAcceptTime == null">
+            first_accept_time = NOW(),
+            </if>
+            </if>
+            <if test="bestScore != null">
+            best_score = GREATEST(best_score, #{bestScore,jdbcType=INTEGER}),
+            </if>
+            <if test="executionTime != null">
+            execution_time = LEAST(COALESCE(execution_time, #{executionTime,jdbcType=INTEGER}), #{executionTime,jdbcType=INTEGER}),
+            </if>
+            updated_time = NOW()
+        WHERE user_id = #{userId,jdbcType=BIGINT}
+        AND problem_id = #{problemId,jdbcType=BIGINT}
+    </update>
+    
+    <!-- 统计用户解决题目数 -->
+    <select id="countCompletedByUserId" resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM learning_progress
+        WHERE user_id = #{userId,jdbcType=BIGINT}
+        AND status = 'COMPLETED'
+    </select>
+    
+    <!-- 按难度统计（需要关联problem表） -->
+    <select id="countByUserIdGroupByDifficulty" resultType="java.util.Map">
+        SELECT p.difficulty, COUNT(*) as count
+        FROM learning_progress lp
+        INNER JOIN cloud_oj_problem.problem p ON lp.problem_id = p.id
+        WHERE lp.user_id = #{userId,jdbcType=BIGINT}
+        AND lp.status = 'COMPLETED'
+        GROUP BY p.difficulty
+    </select>
+    
+    <!-- 获取题目总数 -->
+    <select id="countTotalProblems" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM cloud_oj_problem.problem WHERE status = 1
+    </select>
+    
+    <!-- 按难度统计题目总数 -->
+    <select id="countProblemsByDifficulty" resultType="java.util.HashMap">
+        SELECT 
+            SUM(CASE WHEN difficulty = 'EASY' THEN 1 ELSE 0 END) as EASY,
+            SUM(CASE WHEN difficulty = 'MEDIUM' THEN 1 ELSE 0 END) as MEDIUM,
+            SUM(CASE WHEN difficulty = 'HARD' THEN 1 ELSE 0 END) as HARD
+        FROM cloud_oj_problem.problem 
+        WHERE status = 1
+    </select>
+    
+    <!-- 计算连续学习天数（简化版：统计最近连续有提交的天数） -->
+    <select id="calculateStreak" resultType="int">
+        SELECT COUNT(DISTINCT DATE(last_submit_time)) as streak
+        FROM learning_progress 
+        WHERE user_id = #{userId,jdbcType=BIGINT}
+        AND last_submit_time >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+        AND last_submit_time IS NOT NULL
+    </select>
+    
+    <!-- 计算用户总训练得分（每道题取最高分之和） -->
+    <select id="sumBestScoreByUserId" resultType="java.lang.Long">
+        SELECT COALESCE(SUM(best_score), 0)
+        FROM learning_progress
+        WHERE user_id = #{userId,jdbcType=BIGINT}
+    </select>
+    
+</mapper>

@@ -17,6 +17,7 @@
         <result column="pass_rate" jdbcType="DECIMAL" property="passRate" />
         <result column="test_case_results" jdbcType="VARCHAR" property="testCaseResults" />
         <result column="ip_address" jdbcType="VARCHAR" property="ipAddress" />
+        <result column="homework_id" jdbcType="BIGINT" property="homeworkId" />
         <result column="created_time" jdbcType="TIMESTAMP" property="createTime" />
         <result column="judged_time" jdbcType="TIMESTAMP" property="judgedTime" />
         <result column="deleted" jdbcType="INTEGER" property="deleted" />
@@ -25,14 +26,14 @@
     <!-- 基础列 -->
     <sql id="Base_Column_List">
         id, problem_id, user_id, language, code, status, score, time_used, memory_used,
-        error_message, pass_rate, test_case_results, ip_address, created_time, judged_time, deleted
+        error_message, pass_rate, test_case_results, ip_address, homework_id, created_time, judged_time, deleted
     </sql>
     
     <!-- 插入提交记录 -->
     <insert id="insert" parameterType="com.cloudoj.model.entity.judge.Submission" 
             useGeneratedKeys="true" keyProperty="id">
         INSERT INTO submission (
-            problem_id, user_id, language, code, status, ip_address, created_time
+            problem_id, user_id, language, code, status, ip_address, homework_id, created_time
         ) VALUES (
             #{problemId,jdbcType=BIGINT},
             #{userId,jdbcType=BIGINT},
@@ -40,6 +41,7 @@
             #{code,jdbcType=VARCHAR},
             #{status,jdbcType=VARCHAR},
             #{ipAddress,jdbcType=VARCHAR},
+            #{homeworkId,jdbcType=BIGINT},
             NOW()
         )
     </insert>
@@ -95,19 +97,30 @@
         LIMIT #{offset,jdbcType=INTEGER}, #{limit,jdbcType=INTEGER}
     </select>
     
-    <!-- 统计用户提交次数 -->
+    <!-- 统计用户提交次数（包含题库和作业提交） -->
     <select id="countByUserId" parameterType="java.lang.Long" resultType="java.lang.Integer">
         SELECT COUNT(*)
         FROM submission
         WHERE user_id = #{userId,jdbcType=BIGINT}
+        AND (deleted = 0 OR deleted IS NULL)
     </select>
     
-    <!-- 统计用户通过的题目数 -->
+    <!-- 统计用户通过的提交次数（包含题库和作业提交） -->
     <select id="countAcceptedByUserId" parameterType="java.lang.Long" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM submission
+        WHERE user_id = #{userId,jdbcType=BIGINT}
+        AND status = 'ACCEPTED'
+        AND (deleted = 0 OR deleted IS NULL)
+    </select>
+    
+    <!-- 统计用户解决的不同题目数（包含题库和作业提交） -->
+    <select id="countDistinctAcceptedProblemsByUserId" parameterType="java.lang.Long" resultType="java.lang.Integer">
         SELECT COUNT(DISTINCT problem_id)
         FROM submission
         WHERE user_id = #{userId,jdbcType=BIGINT}
         AND status = 'ACCEPTED'
+        AND (deleted = 0 OR deleted IS NULL)
     </select>
     
 </mapper>

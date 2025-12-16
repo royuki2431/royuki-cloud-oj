@@ -35,10 +35,10 @@ public class DockerSandbox {
     
     private final DockerClient dockerClient;
     
-    // 资源限制
-    private static final long MEMORY_LIMIT = 256 * 1024 * 1024L; // 256MB
+    // 资源限制（默认值）
+    private static final long DEFAULT_MEMORY_LIMIT = 256 * 1024 * 1024L; // 256MB
     private static final long CPU_COUNT = 1L; // 1核CPU
-    private static final int TIME_LIMIT = 5; // 5秒超时
+    private static final int DEFAULT_TIME_LIMIT = 5; // 5秒超时
     
     // 容器池：镜像名 -> 容器ID
     private final Map<String, String> containerPool = new ConcurrentHashMap<>();
@@ -138,8 +138,8 @@ public class DockerSandbox {
         
         HostConfig hostConfig = HostConfig.newHostConfig()
                 .withBinds(bind)
-                .withMemory(MEMORY_LIMIT)
-                .withMemorySwap(MEMORY_LIMIT)
+                .withMemory(DEFAULT_MEMORY_LIMIT)
+                .withMemorySwap(DEFAULT_MEMORY_LIMIT)
                 .withCpuCount(CPU_COUNT)
                 .withNetworkMode("none")
                 .withAutoRemove(false);
@@ -230,7 +230,7 @@ public class DockerSandbox {
                     .output(output)
                     .error(error.isEmpty() ? (exitCode != 0 ? output : "") : error)
                     .executeTime(executeTime)
-                    .memoryUsed(MEMORY_LIMIT / 2)
+                    .memoryUsed(DEFAULT_MEMORY_LIMIT / 2)
                     .build();
                     
         } catch (Exception e) {
@@ -289,15 +289,30 @@ public class DockerSandbox {
      * @return 执行结果
      */
     public DockerExecuteResult execute(String image, String[] command, String workDir, int timeoutSeconds) {
+        return execute(image, command, workDir, timeoutSeconds, 256);
+    }
+    
+    /**
+     * 执行Docker命令（带内存限制）
+     * 
+     * @param image Docker镜像名称
+     * @param command 要执行的命令
+     * @param workDir 工作目录（宿主机路径）
+     * @param timeoutSeconds 超时时间（秒）
+     * @param memoryLimitMB 内存限制（MB）
+     * @return 执行结果
+     */
+    public DockerExecuteResult execute(String image, String[] command, String workDir, int timeoutSeconds, int memoryLimitMB) {
         String containerId = null;
         long startTime = System.currentTimeMillis();
+        long memoryLimitBytes = memoryLimitMB * 1024L * 1024L;
         
         try {
             // 确保镜像存在
             ensureImageExists(image);
             
             // 创建容器
-            containerId = createContainer(image, command, workDir);
+            containerId = createContainer(image, command, workDir, memoryLimitBytes);
             log.debug("创建容器成功: {}", containerId);
             
             // 启动容器 - 从这里开始计时（排除镜像检查和容器创建的开销）
@@ -363,9 +378,16 @@ public class DockerSandbox {
     }
     
     /**
-     * 创建容器
+     * 创建容器（使用默认内存限制）
      */
     private String createContainer(String image, String[] command, String workDir) {
+        return createContainer(image, command, workDir, DEFAULT_MEMORY_LIMIT);
+    }
+    
+    /**
+     * 创建容器（带内存限制）
+     */
+    private String createContainer(String image, String[] command, String workDir, long memoryLimitBytes) {
         // 创建卷挂载
         Volume volume = new Volume("/workspace");
         Bind bind = new Bind(workDir, volume);
@@ -373,8 +395,8 @@ public class DockerSandbox {
         // 配置主机资源限制
         HostConfig hostConfig = HostConfig.newHostConfig()
                 .withBinds(bind)
-                .withMemory(MEMORY_LIMIT)
-                .withMemorySwap(MEMORY_LIMIT) // 禁用swap
+                .withMemory(memoryLimitBytes)
+                .withMemorySwap(memoryLimitBytes) // 禁用swap
                 .withCpuCount(CPU_COUNT)
                 .withNetworkMode("none") // 禁止网络访问
                 .withAutoRemove(false); // 手动清理
@@ -426,7 +448,7 @@ public class DockerSandbox {
         try {
             // 由于Docker API限制，这里返回估计值
             // 实际项目中可以通过stats API获取精确值
-            return MEMORY_LIMIT / 2; // 返回最大限制的一半作为估计值
+            return DEFAULT_MEMORY_LIMIT / 2; // 返回最大限制的一半作为估计值
         } catch (Exception e) {
             log.error("获取容器内存使用失败", e);
             return 0;

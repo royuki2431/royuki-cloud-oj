@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cloudoj.course.mapper.HomeworkMapper">
+    
+    <!-- 结果映射 -->
+    <resultMap id="BaseResultMap" type="com.cloudoj.course.entity.Homework">
+        <id column="id" jdbcType="BIGINT" property="id" />
+        <result column="course_id" jdbcType="BIGINT" property="courseId" />
+        <result column="class_id" jdbcType="BIGINT" property="classId" />
+        <result column="title" jdbcType="VARCHAR" property="title" />
+        <result column="description" jdbcType="VARCHAR" property="description" />
+        <result column="teacher_id" jdbcType="BIGINT" property="teacherId" />
+        <result column="start_time" jdbcType="TIMESTAMP" property="startTime" />
+        <result column="end_time" jdbcType="TIMESTAMP" property="endTime" />
+        <result column="total_score" jdbcType="INTEGER" property="totalScore" />
+        <result column="status" jdbcType="INTEGER" property="status" />
+        <result column="created_time" jdbcType="TIMESTAMP" property="createdTime" />
+        <result column="updated_time" jdbcType="TIMESTAMP" property="updatedTime" />
+    </resultMap>
+    
+    <!-- 基础列 -->
+    <sql id="Base_Column_List">
+        id, course_id, class_id, title, description, teacher_id,
+        start_time, end_time, total_score, status, created_time, updated_time
+    </sql>
+    
+    <!-- 根据主键查询 -->
+    <select id="selectByPrimaryKey" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM homework
+        WHERE id = #{id,jdbcType=BIGINT}
+    </select>
+    
+    <!-- 根据课程ID查询 -->
+    <select id="selectByCourseId" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM homework
+        WHERE course_id = #{courseId,jdbcType=BIGINT}
+        ORDER BY created_time DESC
+    </select>
+    
+    <!-- 根据班级ID查询 -->
+    <select id="selectByClassId" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM homework
+        WHERE class_id = #{classId,jdbcType=BIGINT}
+        ORDER BY created_time DESC
+    </select>
+    
+    <!-- 根据教师ID查询 -->
+    <select id="selectByTeacherId" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM homework
+        WHERE teacher_id = #{teacherId,jdbcType=BIGINT}
+        ORDER BY created_time DESC
+    </select>
+    
+    <!-- 插入 -->
+    <insert id="insert" parameterType="com.cloudoj.course.entity.Homework" 
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO homework (
+            course_id, class_id, title, description, teacher_id,
+            start_time, end_time, total_score, status, created_time, updated_time
+        )
+        VALUES (
+            #{courseId,jdbcType=BIGINT},
+            #{classId,jdbcType=BIGINT},
+            #{title,jdbcType=VARCHAR},
+            #{description,jdbcType=VARCHAR},
+            #{teacherId,jdbcType=BIGINT},
+            #{startTime,jdbcType=TIMESTAMP},
+            #{endTime,jdbcType=TIMESTAMP},
+            #{totalScore,jdbcType=INTEGER},
+            #{status,jdbcType=INTEGER},
+            NOW(), NOW()
+        )
+    </insert>
+    
+    <!-- 选择性插入 -->
+    <insert id="insertSelective" parameterType="com.cloudoj.course.entity.Homework" 
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO homework
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="courseId != null">course_id,</if>
+            <if test="classId != null">class_id,</if>
+            <if test="title != null">title,</if>
+            <if test="description != null">description,</if>
+            <if test="teacherId != null">teacher_id,</if>
+            <if test="startTime != null">start_time,</if>
+            <if test="endTime != null">end_time,</if>
+            <if test="totalScore != null">total_score,</if>
+            <if test="status != null">status,</if>
+            created_time, updated_time,
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="courseId != null">#{courseId,jdbcType=BIGINT},</if>
+            <if test="classId != null">#{classId,jdbcType=BIGINT},</if>
+            <if test="title != null">#{title,jdbcType=VARCHAR},</if>
+            <if test="description != null">#{description,jdbcType=VARCHAR},</if>
+            <if test="teacherId != null">#{teacherId,jdbcType=BIGINT},</if>
+            <if test="startTime != null">#{startTime,jdbcType=TIMESTAMP},</if>
+            <if test="endTime != null">#{endTime,jdbcType=TIMESTAMP},</if>
+            <if test="totalScore != null">#{totalScore,jdbcType=INTEGER},</if>
+            <if test="status != null">#{status,jdbcType=INTEGER},</if>
+            NOW(), NOW(),
+        </trim>
+    </insert>
+    
+    <!-- 选择性更新 -->
+    <update id="updateByPrimaryKeySelective" parameterType="com.cloudoj.course.entity.Homework">
+        UPDATE homework
+        <set>
+            <if test="title != null">title = #{title,jdbcType=VARCHAR},</if>
+            <if test="description != null">description = #{description,jdbcType=VARCHAR},</if>
+            <if test="startTime != null">start_time = #{startTime,jdbcType=TIMESTAMP},</if>
+            <if test="endTime != null">end_time = #{endTime,jdbcType=TIMESTAMP},</if>
+            <if test="totalScore != null">total_score = #{totalScore,jdbcType=INTEGER},</if>
+            <if test="status != null">status = #{status,jdbcType=INTEGER},</if>
+            updated_time = NOW(),
+        </set>
+        WHERE id = #{id,jdbcType=BIGINT}
+    </update>
+    
+    <!-- 删除作业 -->
+    <delete id="deleteByPrimaryKey">
+        DELETE FROM homework
+        WHERE id = #{id,jdbcType=BIGINT}
+    </delete>
+    
+</mapper>

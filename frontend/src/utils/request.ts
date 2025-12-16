@@ -27,9 +27,21 @@ service.interceptors.request.use(
 // 响应拦截器
 service.interceptors.response.use(
     (response: AxiosResponse<ApiResponse>) => {
-        const { code, message, data } = response.data
+        const res = response.data as any
+        const { code, message, data } = res
 
         if (code === 200) {
+            // 检查是否是分页响应（包含 total 字段）
+            if ('total' in res && 'current' in res) {
+                // 分页响应，返回完整对象
+                return {
+                    data: data,
+                    total: res.total,
+                    current: res.current,
+                    size: res.size,
+                    pages: res.pages
+                }
+            }
             return data
         } else {
             ElMessage.error(message || '请求失败')

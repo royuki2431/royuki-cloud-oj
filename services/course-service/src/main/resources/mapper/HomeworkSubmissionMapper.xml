@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cloudoj.course.mapper.HomeworkSubmissionMapper">
+    
+    <!-- 结果映射 -->
+    <resultMap id="BaseResultMap" type="com.cloudoj.course.entity.HomeworkSubmission">
+        <id column="id" jdbcType="BIGINT" property="id" />
+        <result column="homework_id" jdbcType="BIGINT" property="homeworkId" />
+        <result column="student_id" jdbcType="BIGINT" property="studentId" />
+        <result column="problem_id" jdbcType="BIGINT" property="problemId" />
+        <result column="submission_id" jdbcType="BIGINT" property="submissionId" />
+        <result column="score" jdbcType="INTEGER" property="score" />
+        <result column="status" jdbcType="VARCHAR" property="status" />
+        <result column="submit_time" jdbcType="TIMESTAMP" property="submitTime" />
+        <result column="is_late" jdbcType="INTEGER" property="isLate" />
+    </resultMap>
+    
+    <!-- 基础列 -->
+    <sql id="Base_Column_List">
+        id, homework_id, student_id, problem_id, submission_id,
+        score, status, submit_time, is_late
+    </sql>
+    
+    <!-- 根据主键查询 -->
+    <select id="selectByPrimaryKey" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM homework_submission
+        WHERE id = #{id,jdbcType=BIGINT}
+    </select>
+    
+    <!-- 根据作业ID查询 -->
+    <select id="selectByHomeworkId" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM homework_submission
+        WHERE homework_id = #{homeworkId,jdbcType=BIGINT}
+        ORDER BY submit_time DESC
+    </select>
+    
+    <!-- 根据学生ID查询 -->
+    <select id="selectByStudentId" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM homework_submission
+        WHERE student_id = #{studentId,jdbcType=BIGINT}
+        ORDER BY submit_time DESC
+    </select>
+    
+    <!-- 根据学生ID和作业ID查询 -->
+    <select id="selectByStudentIdAndHomeworkId" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM homework_submission
+        WHERE student_id = #{studentId,jdbcType=BIGINT}
+        AND homework_id = #{homeworkId,jdbcType=BIGINT}
+        ORDER BY submit_time DESC
+    </select>
+    
+    <!-- 查询学生在某个题目上的最佳提交 -->
+    <select id="selectBestSubmission" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM homework_submission
+        WHERE student_id = #{studentId,jdbcType=BIGINT}
+        AND homework_id = #{homeworkId,jdbcType=BIGINT}
+        AND problem_id = #{problemId,jdbcType=BIGINT}
+        ORDER BY score DESC, submit_time ASC
+        LIMIT 1
+    </select>
+    
+    <!-- 根据作业ID和学生ID查询最佳提交 -->
+    <select id="selectByHomeworkAndStudent" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM homework_submission
+        WHERE homework_id = #{homeworkId,jdbcType=BIGINT}
+        AND student_id = #{studentId,jdbcType=BIGINT}
+        ORDER BY score DESC
+        LIMIT 1
+    </select>
+    
+    <!-- 统计作业完成情况（有提交记录的学生数） -->
+    <select id="countCompletedStudents" resultType="java.lang.Long">
+        SELECT COUNT(DISTINCT student_id)
+        FROM homework_submission
+        WHERE homework_id = #{homeworkId,jdbcType=BIGINT}
+    </select>
+    
+    <!-- 插入 -->
+    <insert id="insert" parameterType="com.cloudoj.course.entity.HomeworkSubmission" 
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO homework_submission (
+            homework_id, student_id, problem_id, submission_id,
+            score, status, submit_time, is_late
+        )
+        VALUES (
+            #{homeworkId,jdbcType=BIGINT},
+            #{studentId,jdbcType=BIGINT},
+            #{problemId,jdbcType=BIGINT},
+            #{submissionId,jdbcType=BIGINT},
+            #{score,jdbcType=INTEGER},
+            #{status,jdbcType=VARCHAR},
+            #{submitTime,jdbcType=TIMESTAMP},
+            #{isLate,jdbcType=INTEGER}
+        )
+    </insert>
+    
+    <!-- 选择性插入 -->
+    <insert id="insertSelective" parameterType="com.cloudoj.course.entity.HomeworkSubmission" 
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO homework_submission
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="homeworkId != null">homework_id,</if>
+            <if test="studentId != null">student_id,</if>
+            <if test="problemId != null">problem_id,</if>
+            <if test="submissionId != null">submission_id,</if>
+            <if test="score != null">score,</if>
+            <if test="status != null">status,</if>
+            <if test="submitTime != null">submit_time,</if>
+            <if test="isLate != null">is_late,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="homeworkId != null">#{homeworkId,jdbcType=BIGINT},</if>
+            <if test="studentId != null">#{studentId,jdbcType=BIGINT},</if>
+            <if test="problemId != null">#{problemId,jdbcType=BIGINT},</if>
+            <if test="submissionId != null">#{submissionId,jdbcType=BIGINT},</if>
+            <if test="score != null">#{score,jdbcType=INTEGER},</if>
+            <if test="status != null">#{status,jdbcType=VARCHAR},</if>
+            <if test="submitTime != null">#{submitTime,jdbcType=TIMESTAMP},</if>
+            <if test="isLate != null">#{isLate,jdbcType=INTEGER},</if>
+        </trim>
+    </insert>
+    
+    <!-- 更新提交状态和得分 -->
+    <update id="updateScoreAndStatus">
+        UPDATE homework_submission
+        SET score = #{score,jdbcType=INTEGER},
+            status = #{status,jdbcType=VARCHAR}
+        WHERE id = #{id,jdbcType=BIGINT}
+    </update>
+    
+    <!-- 根据班级ID和学生ID查询提交列表 -->
+    <select id="selectByClassIdAndStudentId" resultMap="BaseResultMap">
+        SELECT hs.id, hs.homework_id, hs.student_id, hs.problem_id, hs.submission_id,
+               hs.score, hs.status, hs.submit_time, hs.is_late
+        FROM homework_submission hs
+        INNER JOIN homework h ON hs.homework_id = h.id
+        WHERE h.class_id = #{classId,jdbcType=BIGINT}
+        AND hs.student_id = #{studentId,jdbcType=BIGINT}
+        ORDER BY hs.submit_time DESC
+    </select>
+    
+</mapper>

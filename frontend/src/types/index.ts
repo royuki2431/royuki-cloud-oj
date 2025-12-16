@@ -66,6 +66,7 @@ export interface SubmitCodeRequest {
     userId: number
     language: Language
     code: string
+    homeworkId?: number  // 作业ID（可选，从作业页面进入时传递）
 }
 
 // 提交记录

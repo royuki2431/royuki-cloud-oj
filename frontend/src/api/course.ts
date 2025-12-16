@@ -20,19 +20,15 @@ export function createCourse(data: Partial<Course>) {
 }
 
 export function getCourseById(id: number) {
-    return request.get<any, Course>(`/course/${id}`)
+    return request.get<any, Course>(`/course/detail/${id}`)
 }
 
 export function getTeacherCourses(teacherId: number) {
-    return request.get<any, Course[]>('/course/teacher', {
-        params: { teacherId }
-    })
+    return request.get<any, Course[]>(`/course/teacher/${teacherId}`)
 }
 
 export function getStudentCourses(studentId: number) {
-    return request.get<any, Course[]>('/course/student', {
-        params: { studentId }
-    })
+    return request.get<any, Course[]>(`/course/student/${studentId}`)
 }
 
 export function updateCourse(data: Partial<Course>) {
@@ -72,9 +68,7 @@ export function getClassByCode(code: string) {
 }
 
 export function getCourseClasses(courseId: number) {
-    return request.get<any, CourseClass[]>('/course/class/list', {
-        params: { courseId }
-    })
+    return request.get<any, CourseClass[]>(`/course/class/list/${courseId}`)
 }
 
 export function joinClass(studentId: number, inviteCode: string) {
@@ -150,19 +144,15 @@ export function createHomework(data: {
 }
 
 export function getHomeworkDetail(id: number) {
-    return request.get<any, any>(`/course/homework/${id}`)
+    return request.get<any, any>(`/course/homework/detail/${id}`)
 }
 
 export function getClassHomeworks(classId: number) {
-    return request.get<any, Homework[]>('/course/homework/list', {
-        params: { classId }
-    })
+    return request.get<any, Homework[]>(`/course/homework/class/${classId}`)
 }
 
 export function getStudentHomeworks(studentId: number) {
-    return request.get<any, any[]>('/course/homework/student', {
-        params: { studentId }
-    })
+    return request.get<any, any[]>(`/course/homework/student/${studentId}`)
 }
 
 export function updateHomework(data: Partial<Homework>) {
@@ -191,4 +181,11 @@ export function getStudentRanking(classId: number) {
 
 export function getCourseStatistics(courseId: number) {
     return request.get<any, any>(`/course/statistics/course/${courseId}`)
+}
+
+// 获取学生作业提交记录
+export function getStudentHomeworkSubmissions(classId: number, studentId: number) {
+    return request.get<any, any[]>('/course/homework/submissions', {
+        params: { classId, studentId }
+    })
 }

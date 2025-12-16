@@ -37,7 +37,8 @@ public class CSandbox implements LanguageSandbox {
             // 创建工作目录（在共享目录下创建子目录）
             workDir = dockerSandbox.createWorkDir();
             subDir = dockerSandbox.getSubDirName(workDir);
-            log.info("C语言评测开始, workDir={}, subDir={}", workDir, subDir);
+            log.info("C语言评测开始, workDir={}, subDir={}, timeLimit={}ms, memoryLimit={}MB", 
+                    workDir, subDir, timeLimit, memoryLimit);
             
             // 获取或创建容器池中的容器（挂载共享目录）
             String pooledContainerId = dockerSandbox.getOrCreatePooledContainer(DOCKER_IMAGE);
@@ -50,7 +51,7 @@ public class CSandbox implements LanguageSandbox {
             // 编译代码
             DockerSandbox.DockerExecuteResult compileResult = usePooledContainer
                     ? compileInContainer(pooledContainerId, subDir, timeLimit)
-                    : compile(workDir, timeLimit);
+                    : compile(workDir, timeLimit, memoryLimit);
             if (!compileResult.isSuccess()) {
                 log.warn("编译失败: {}", compileResult.getError());
                 return JudgeResult.builder()
@@ -82,7 +83,7 @@ public class CSandbox implements LanguageSandbox {
                 // 运行代码（优先使用容器池）
                 DockerSandbox.DockerExecuteResult runResult = usePooledContainer
                         ? runInContainer(pooledContainerId, subDir, timeLimit)
-                        : run(workDir, timeLimit);
+                        : run(workDir, timeLimit, memoryLimit);
                 
                 maxTime = Math.max(maxTime, runResult.getExecuteTime());  // 取最大运行时间
                 maxMemory = Math.max(maxMemory, runResult.getMemoryUsed() / 1024);
@@ -141,13 +142,13 @@ public class CSandbox implements LanguageSandbox {
     /**
      * 编译C代码（传统模式）
      */
-    private DockerSandbox.DockerExecuteResult compile(String workDir, int timeLimit) {
+    private DockerSandbox.DockerExecuteResult compile(String workDir, int timeLimit, int memoryLimit) {
         String[] command = new String[]{
                 "sh", "-c",
                 "gcc -std=c11 -O2 -o " + EXECUTABLE_FILE + " " + SOURCE_FILE + " 2>&1"
         };
         
-        return dockerSandbox.execute(DOCKER_IMAGE, command, workDir, timeLimit / 1000);
+        return dockerSandbox.execute(DOCKER_IMAGE, command, workDir, timeLimit / 1000, memoryLimit);
     }
     
     /**
@@ -165,13 +166,13 @@ public class CSandbox implements LanguageSandbox {
     /**
      * 运行C代码（传统模式）
      */
-    private DockerSandbox.DockerExecuteResult run(String workDir, int timeLimit) {
+    private DockerSandbox.DockerExecuteResult run(String workDir, int timeLimit, int memoryLimit) {
         String[] command = new String[]{
                 "sh", "-c",
                 "timeout " + (timeLimit / 1000) + "s ./" + EXECUTABLE_FILE + " < input.txt 2>&1"
         };
         
-        return dockerSandbox.execute(DOCKER_IMAGE, command, workDir, timeLimit / 1000 + 1);
+        return dockerSandbox.execute(DOCKER_IMAGE, command, workDir, timeLimit / 1000 + 1, memoryLimit);
     }
     
     /**

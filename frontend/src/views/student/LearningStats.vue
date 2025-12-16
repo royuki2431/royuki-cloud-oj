@@ -42,95 +42,273 @@
           <div class="card-label">通过率</div>
         </div>
       </el-card>
+      <el-card class="overview-card">
+        <div class="card-icon score">
+          <el-icon><Medal /></el-icon>
+        </div>
+        <div class="card-info">
+          <div class="card-value">{{ overview.totalTrainingScore || 0 }}</div>
+          <div class="card-label">总训练得分</div>
+        </div>
+      </el-card>
     </div>
 
-    <!-- 学习热力图 -->
-    <el-card class="heatmap-card">
-      <template #header>
-        <div class="card-header">
-          <span>学习热力图</span>
-          <el-date-picker
-            v-model="dateRange"
-            type="daterange"
-            range-separator="至"
-            start-placeholder="开始日期"
-            end-placeholder="结束日期"
-            format="YYYY-MM-DD"
-            value-format="YYYY-MM-DD"
-            @change="loadHeatmap"
-          />
-        </div>
-      </template>
-      <div class="heatmap-container" v-loading="heatmapLoading">
-        <div class="heatmap-grid">
-          <div 
-            v-for="(day, index) in heatmapData" 
-            :key="index"
-            class="heatmap-cell"
-            :class="getHeatmapClass(day.submitCount)"
-            :title="`${day.statDate}: ${day.submitCount} 次提交`"
-          ></div>
-        </div>
-        <div class="heatmap-legend">
-          <span>少</span>
-          <div class="legend-cell level-0"></div>
-          <div class="legend-cell level-1"></div>
-          <div class="legend-cell level-2"></div>
-          <div class="legend-cell level-3"></div>
-          <div class="legend-cell level-4"></div>
-          <span>多</span>
-        </div>
-      </div>
-    </el-card>
-
-    <!-- 排行榜 -->
+    <!-- 班级排行榜 -->
     <el-card class="leaderboard-card">
       <template #header>
-        <span>排行榜 Top 10</span>
+        <div class="card-header">
+          <span>班级排行榜 Top 10</span>
+          <el-select 
+            v-model="selectedClassId" 
+            placeholder="选择班级" 
+            @change="loadClassLeaderboard"
+            style="width: 200px"
+            v-if="myClasses.length > 0"
+          >
+            <el-option 
+              v-for="cls in myClasses" 
+              :key="cls.classId" 
+              :label="cls.className" 
+              :value="cls.classId" 
+            />
+          </el-select>
+        </div>
       </template>
-      <el-table :data="leaderboard" v-loading="leaderboardLoading">
+      <el-empty v-if="myClasses.length === 0 && !classesLoading" description="暂未加入任何班级">
+        <el-button type="primary" @click="$router.push('/my-classes')">加入班级</el-button>
+      </el-empty>
+      <el-table v-else :data="leaderboard" v-loading="leaderboardLoading">
         <el-table-column label="排名" width="80" align="center">
           <template #default="{ $index }">
             <span :class="getRankClass($index + 1)">{{ $index + 1 }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="userId" label="用户ID" width="120" />
-        <el-table-column prop="totalProblemsSolved" label="解决题目" align="center" />
-        <el-table-column prop="totalAccepted" label="通过次数" align="center" />
-        <el-table-column prop="totalSubmissions" label="提交次数" align="center" />
+        <el-table-column prop="studentName" label="学生" min-width="120" />
+        <el-table-column prop="submitCount" label="提交次数" align="center" width="100" />
+        <el-table-column prop="solvedCount" label="完成题目" align="center" width="100" />
+        <el-table-column prop="totalScore" label="总分" align="center" width="100" />
       </el-table>
+    </el-card>
+
+    <!-- 学习日历 - 双月视图 -->
+    <el-card class="calendar-card">
+      <template #header>
+        <div class="card-header">
+          <span>学习日历</span>
+          <div class="calendar-nav">
+            <el-button text @click="prevMonth">
+              <el-icon><ArrowLeft /></el-icon>
+            </el-button>
+            <span class="current-month">{{ twoMonthLabel }}</span>
+            <el-button text @click="nextMonth" :disabled="isCurrentMonth">
+              <el-icon><ArrowRight /></el-icon>
+            </el-button>
+          </div>
+        </div>
+      </template>
+      <div class="dual-calendar-container" v-loading="heatmapLoading">
+        <!-- 左侧月份（上个月） -->
+        <div class="calendar-month">
+          <div class="month-title">{{ prevMonthLabel }}</div>
+          <div class="calendar-weekdays">
+            <div v-for="day in weekdays" :key="day" class="weekday">{{ day }}</div>
+          </div>
+          <div class="calendar-grid">
+            <div 
+              v-for="(day, index) in prevMonthDays" 
+              :key="'prev-' + index"
+              class="calendar-cell"
+              :class="[
+                getHeatmapClass(day.submitCount),
+                { 'other-month': !day.isCurrentMonth, 'today': day.isToday }
+              ]"
+              :title="day.date ? `${day.date}: ${day.submitCount} 次提交` : ''"
+            >
+              <span class="day-number">{{ day.dayNumber }}</span>
+              <span v-if="day.submitCount > 0" class="submit-count">{{ day.submitCount }}</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 右侧月份（当前月） -->
+        <div class="calendar-month">
+          <div class="month-title">{{ currentMonthLabel }}</div>
+          <div class="calendar-weekdays">
+            <div v-for="day in weekdays" :key="day" class="weekday">{{ day }}</div>
+          </div>
+          <div class="calendar-grid">
+            <div 
+              v-for="(day, index) in calendarDays" 
+              :key="'curr-' + index"
+              class="calendar-cell"
+              :class="[
+                getHeatmapClass(day.submitCount),
+                { 'other-month': !day.isCurrentMonth, 'today': day.isToday }
+              ]"
+              :title="day.date ? `${day.date}: ${day.submitCount} 次提交` : ''"
+            >
+              <span class="day-number">{{ day.dayNumber }}</span>
+              <span v-if="day.submitCount > 0" class="submit-count">{{ day.submitCount }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="heatmap-legend">
+        <span>少</span>
+        <div class="legend-cell level-0"></div>
+        <div class="legend-cell level-1"></div>
+        <div class="legend-cell level-2"></div>
+        <div class="legend-cell level-3"></div>
+        <div class="legend-cell level-4"></div>
+        <span>多</span>
+      </div>
     </el-card>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Document, Select, Trophy, TrendCharts } from '@element-plus/icons-vue'
+import { Document, Select, Trophy, TrendCharts, ArrowLeft, ArrowRight, Medal } from '@element-plus/icons-vue'
 import { 
   getLearningOverview, 
   getLearningHeatmap, 
-  getLeaderboard,
+  getClassLeaderboard,
   type LearningStatistics
 } from '@/api/learning'
+import request from '@/utils/request'
 
+const router = useRouter()
 const overview = ref<any>({})
-const heatmapData = ref<LearningStatistics[]>([])
+const heatmapData = ref<any[]>([])
 const leaderboard = ref<any[]>([])
 const heatmapLoading = ref(false)
 const leaderboardLoading = ref(false)
+const classesLoading = ref(false)
 
-// 日期范围，默认最近3个月
-const getDefaultDateRange = () => {
-  const end = new Date()
-  const start = new Date()
-  start.setMonth(start.getMonth() - 3)
-  return [
-    start.toISOString().split('T')[0],
-    end.toISOString().split('T')[0]
-  ]
+// 班级相关
+const myClasses = ref<any[]>([])
+const selectedClassId = ref<number | null>(null)
+
+// 日历相关
+const currentDate = ref(new Date())
+const weekdays = ['日', '一', '二', '三', '四', '五', '六']
+const months = ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月']
+
+// 当前月份标签
+const currentMonthLabel = computed(() => {
+  const year = currentDate.value.getFullYear()
+  const month = currentDate.value.getMonth()
+  return `${year}年${months[month]}`
+})
+
+// 上个月标签
+const prevMonthLabel = computed(() => {
+  const date = new Date(currentDate.value)
+  date.setMonth(date.getMonth() - 1)
+  return `${date.getFullYear()}年${months[date.getMonth()]}`
+})
+
+// 双月标签
+const twoMonthLabel = computed(() => {
+  return `${prevMonthLabel.value} - ${currentMonthLabel.value}`
+})
+
+// 是否是当前月
+const isCurrentMonth = computed(() => {
+  const now = new Date()
+  return currentDate.value.getFullYear() === now.getFullYear() && 
+         currentDate.value.getMonth() === now.getMonth()
+})
+
+// 上个月
+const prevMonth = () => {
+  const newDate = new Date(currentDate.value)
+  newDate.setMonth(newDate.getMonth() - 1)
+  currentDate.value = newDate
+  loadHeatmap()
 }
-const dateRange = ref(getDefaultDateRange())
+
+// 下个月
+const nextMonth = () => {
+  if (isCurrentMonth.value) return
+  const newDate = new Date(currentDate.value)
+  newDate.setMonth(newDate.getMonth() + 1)
+  currentDate.value = newDate
+  loadHeatmap()
+}
+
+// 生成指定月份的日历数据
+const generateMonthDays = (year: number, month: number) => {
+  const today = new Date()
+  
+  // 当月第一天
+  const firstDay = new Date(year, month, 1)
+  // 当月最后一天
+  const lastDay = new Date(year, month + 1, 0)
+  // 第一天是星期几
+  const startWeekday = firstDay.getDay()
+  // 当月天数
+  const daysInMonth = lastDay.getDate()
+  
+  const days: any[] = []
+  
+  // 上个月的日期填充
+  const prevMonthLastDay = new Date(year, month, 0).getDate()
+  for (let i = startWeekday - 1; i >= 0; i--) {
+    days.push({
+      dayNumber: prevMonthLastDay - i,
+      date: '',
+      submitCount: 0,
+      isCurrentMonth: false,
+      isToday: false
+    })
+  }
+  
+  // 当月日期
+  for (let i = 1; i <= daysInMonth; i++) {
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`
+    const heatmapDay = heatmapData.value.find(d => d.statDate === dateStr)
+    const isToday = today.getFullYear() === year && today.getMonth() === month && today.getDate() === i
+    
+    days.push({
+      dayNumber: i,
+      date: dateStr,
+      submitCount: heatmapDay?.submitCount || 0,
+      isCurrentMonth: true,
+      isToday
+    })
+  }
+  
+  // 下个月的日期填充（补满6行）
+  const remaining = 42 - days.length
+  for (let i = 1; i <= remaining; i++) {
+    days.push({
+      dayNumber: i,
+      date: '',
+      submitCount: 0,
+      isCurrentMonth: false,
+      isToday: false
+    })
+  }
+  
+  return days
+}
+
+// 当前月日历数据
+const calendarDays = computed(() => {
+  const year = currentDate.value.getFullYear()
+  const month = currentDate.value.getMonth()
+  return generateMonthDays(year, month)
+})
+
+// 上个月日历数据
+const prevMonthDays = computed(() => {
+  const date = new Date(currentDate.value)
+  date.setMonth(date.getMonth() - 1)
+  return generateMonthDays(date.getFullYear(), date.getMonth())
+})
 
 // 获取当前用户ID
 const getUserId = () => {
@@ -159,18 +337,28 @@ const loadOverview = async () => {
   }
 }
 
-// 加载热力图数据
+// 加载热力图数据（加载两个月的数据）
 const loadHeatmap = async () => {
   const userId = getUserId()
-  if (!userId || !dateRange.value) return
+  if (!userId) return
+  
+  // 计算上个月的起始日期
+  const prevMonthDate = new Date(currentDate.value)
+  prevMonthDate.setMonth(prevMonthDate.getMonth() - 1)
+  const prevYear = prevMonthDate.getFullYear()
+  const prevMonth = prevMonthDate.getMonth()
+  const startDate = `${prevYear}-${String(prevMonth + 1).padStart(2, '0')}-01`
+  
+  // 当前月的结束日期
+  const year = currentDate.value.getFullYear()
+  const month = currentDate.value.getMonth()
+  const lastDay = new Date(year, month + 1, 0).getDate()
+  const endDate = `${year}-${String(month + 1).padStart(2, '0')}-${lastDay}`
   
   heatmapLoading.value = true
   try {
-    heatmapData.value = await getLearningHeatmap(
-      userId, 
-      dateRange.value[0], 
-      dateRange.value[1]
-    )
+    heatmapData.value = await getLearningHeatmap(userId, startDate, endDate)
+    console.log('热力图数据:', heatmapData.value) // 调试日志
   } catch (error) {
     console.error('加载热力图失败:', error)
   } finally {
@@ -178,13 +366,38 @@ const loadHeatmap = async () => {
   }
 }
 
-// 加载排行榜
-const loadLeaderboard = async () => {
+// 加载我的班级列表
+const loadMyClasses = async () => {
+  const userId = getUserId()
+  if (!userId) return
+  
+  classesLoading.value = true
+  try {
+    const res = await request.get(`/course/student/classes/${userId}`)
+    myClasses.value = res || []
+    // 默认选择第一个班级
+    if (myClasses.value.length > 0) {
+      selectedClassId.value = myClasses.value[0].classId
+      loadClassLeaderboard()
+    }
+  } catch (error) {
+    console.error('加载班级列表失败:', error)
+  } finally {
+    classesLoading.value = false
+  }
+}
+
+// 加载班级排行榜
+const loadClassLeaderboard = async () => {
+  if (!selectedClassId.value) return
+  
   leaderboardLoading.value = true
   try {
-    leaderboard.value = await getLeaderboard(10)
+    const data = await getClassLeaderboard(selectedClassId.value)
+    // 只取前10名
+    leaderboard.value = (data || []).slice(0, 10)
   } catch (error) {
-    console.error('加载排行榜失败:', error)
+    console.error('加载班级排行榜失败:', error)
   } finally {
     leaderboardLoading.value = false
   }
@@ -216,7 +429,7 @@ onMounted(() => {
   
   loadOverview()
   loadHeatmap()
-  loadLeaderboard()
+  loadMyClasses()
 })
 </script>
 
@@ -239,7 +452,7 @@ onMounted(() => {
 
 .overview-cards {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 20px;
   margin-bottom: 20px;
 }
@@ -265,6 +478,7 @@ onMounted(() => {
     &.accepted { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
     &.solved { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
     &.rate { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+    &.score { background: linear-gradient(135deg, #f5af19 0%, #f12711 100%); }
   }
   
   .card-info {
@@ -282,28 +496,123 @@ onMounted(() => {
   }
 }
 
-.heatmap-card {
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.calendar-card {
   margin-bottom: 20px;
   
-  .card-header {
+  .calendar-nav {
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    gap: 8px;
+    
+    .current-month {
+      font-size: 14px;
+      font-weight: 500;
+      min-width: 200px;
+      text-align: center;
+    }
   }
 }
 
-.heatmap-container {
-  .heatmap-grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 3px;
+.dual-calendar-container {
+  display: flex;
+  gap: 24px;
+  
+  .calendar-month {
+    flex: 1;
+    
+    .month-title {
+      text-align: center;
+      font-size: 14px;
+      font-weight: 600;
+      color: #303133;
+      margin-bottom: 12px;
+    }
   }
   
-  .heatmap-cell {
+  .calendar-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+    margin-bottom: 4px;
+    
+    .weekday {
+      text-align: center;
+      font-size: 11px;
+      font-weight: 500;
+      color: #909399;
+      padding: 4px 0;
+    }
+  }
+  
+  .calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+  }
+  
+  .calendar-cell {
+    aspect-ratio: 1;
+    position: relative;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 32px;
+    
+    .day-number {
+      font-size: 12px;
+      font-weight: 500;
+    }
+    
+    .submit-count {
+      font-size: 9px;
+      opacity: 0.8;
+      margin-top: 1px;
+    }
+    
+    &.other-month {
+      opacity: 0.3;
+    }
+    
+    &.today {
+      border: 2px solid #409eff;
+    }
+    
+    &:hover:not(.other-month) {
+      transform: scale(1.08);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+  }
+  
+  .level-0 { background: #ebedf0; color: #909399; }
+  .level-1 { background: #9be9a8; color: #1a5928; }
+  .level-2 { background: #40c463; color: #fff; }
+  .level-3 { background: #30a14e; color: #fff; }
+  .level-4 { background: #216e39; color: #fff; }
+}
+
+.heatmap-legend {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-top: 16px;
+  font-size: 11px;
+  color: #909399;
+  
+  .legend-cell {
     width: 12px;
     height: 12px;
-    border-radius: 2px;
-    cursor: pointer;
+    border-radius: 3px;
   }
   
   .level-0 { background: #ebedf0; }
@@ -311,21 +620,6 @@ onMounted(() => {
   .level-2 { background: #40c463; }
   .level-3 { background: #30a14e; }
   .level-4 { background: #216e39; }
-  
-  .heatmap-legend {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    margin-top: 12px;
-    font-size: 12px;
-    color: #909399;
-    
-    .legend-cell {
-      width: 12px;
-      height: 12px;
-      border-radius: 2px;
-    }
-  }
 }
 
 .leaderboard-card {
@@ -333,6 +627,7 @@ onMounted(() => {
     color: #ffd700;
     font-weight: bold;
     font-size: 18px;
+    text-shadow: 0 0 2px rgba(0,0,0,0.3);
   }
   
   .rank-silver {

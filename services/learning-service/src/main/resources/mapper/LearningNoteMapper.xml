@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cloudoj.learning.mapper.LearningNoteMapper">
+    
+    <!-- 结果映射 -->
+    <resultMap id="BaseResultMap" type="com.cloudoj.learning.entity.LearningNote">
+        <id column="id" jdbcType="BIGINT" property="id" />
+        <result column="user_id" jdbcType="BIGINT" property="userId" />
+        <result column="problem_id" jdbcType="BIGINT" property="problemId" />
+        <result column="title" jdbcType="VARCHAR" property="title" />
+        <result column="content" jdbcType="LONGVARCHAR" property="content" />
+        <result column="is_public" jdbcType="INTEGER" property="isPublic" />
+        <result column="created_time" jdbcType="TIMESTAMP" property="createdTime" />
+        <result column="updated_time" jdbcType="TIMESTAMP" property="updatedTime" />
+    </resultMap>
+    
+    <!-- 基础列 -->
+    <sql id="Base_Column_List">
+        id, user_id, problem_id, title, content, is_public, created_time, updated_time
+    </sql>
+    
+    <!-- 根据主键查询 -->
+    <select id="selectByPrimaryKey" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM learning_note
+        WHERE id = #{id,jdbcType=BIGINT}
+    </select>
+    
+    <!-- 根据用户ID查询笔记列表 -->
+    <select id="selectByUserId" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM learning_note
+        WHERE user_id = #{userId,jdbcType=BIGINT}
+        ORDER BY updated_time DESC
+    </select>
+    
+    <!-- 根据用户ID和题目ID查询笔记 -->
+    <select id="selectByUserAndProblem" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM learning_note
+        WHERE user_id = #{userId,jdbcType=BIGINT}
+        AND problem_id = #{problemId,jdbcType=BIGINT}
+        ORDER BY updated_time DESC
+    </select>
+    
+    <!-- 根据题目ID查询公开笔记 -->
+    <select id="selectPublicByProblemId" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM learning_note
+        WHERE problem_id = #{problemId,jdbcType=BIGINT}
+        AND is_public = 1
+        ORDER BY updated_time DESC
+    </select>
+    
+    <!-- 搜索笔记 -->
+    <select id="searchByKeyword" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM learning_note
+        WHERE user_id = #{userId,jdbcType=BIGINT}
+        AND (title LIKE #{keyword,jdbcType=VARCHAR} OR content LIKE #{keyword,jdbcType=VARCHAR})
+        ORDER BY updated_time DESC
+    </select>
+    
+    <!-- 插入 -->
+    <insert id="insert" parameterType="com.cloudoj.learning.entity.LearningNote" 
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO learning_note (
+            user_id, problem_id, title, content, is_public, created_time, updated_time
+        )
+        VALUES (
+            #{userId,jdbcType=BIGINT},
+            #{problemId,jdbcType=BIGINT},
+            #{title,jdbcType=VARCHAR},
+            #{content,jdbcType=LONGVARCHAR},
+            #{isPublic,jdbcType=INTEGER},
+            NOW(), NOW()
+        )
+    </insert>
+    
+    <!-- 选择性插入 -->
+    <insert id="insertSelective" parameterType="com.cloudoj.learning.entity.LearningNote" 
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO learning_note
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="userId != null">user_id,</if>
+            <if test="problemId != null">problem_id,</if>
+            <if test="title != null">title,</if>
+            <if test="content != null">content,</if>
+            <if test="isPublic != null">is_public,</if>
+            created_time, updated_time,
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="userId != null">#{userId,jdbcType=BIGINT},</if>
+            <if test="problemId != null">#{problemId,jdbcType=BIGINT},</if>
+            <if test="title != null">#{title,jdbcType=VARCHAR},</if>
+            <if test="content != null">#{content,jdbcType=LONGVARCHAR},</if>
+            <if test="isPublic != null">#{isPublic,jdbcType=INTEGER},</if>
+            NOW(), NOW(),
+        </trim>
+    </insert>
+    
+    <!-- 选择性更新 -->
+    <update id="updateByPrimaryKeySelective" parameterType="com.cloudoj.learning.entity.LearningNote">
+        UPDATE learning_note
+        <set>
+            <if test="title != null">title = #{title,jdbcType=VARCHAR},</if>
+            <if test="content != null">content = #{content,jdbcType=LONGVARCHAR},</if>
+            <if test="isPublic != null">is_public = #{isPublic,jdbcType=INTEGER},</if>
+            updated_time = NOW(),
+        </set>
+        WHERE id = #{id,jdbcType=BIGINT}
+    </update>
+    
+    <!-- 删除笔记 -->
+    <delete id="deleteByPrimaryKey" parameterType="java.lang.Long">
+        DELETE FROM learning_note WHERE id = #{id,jdbcType=BIGINT}
+    </delete>
+    
+    <!-- 统计用户笔记数 -->
+    <select id="countByUserId" resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM learning_note
+        WHERE user_id = #{userId,jdbcType=BIGINT}
+    </select>
+    
+</mapper>

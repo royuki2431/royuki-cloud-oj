@@ -1,5 +1,6 @@
 package com.cloudoj.judge.service;
 
+import com.cloudoj.model.common.PageResult;
 import com.cloudoj.model.dto.judge.SubmitCodeRequest;
 import com.cloudoj.model.entity.judge.Submission;
 import com.cloudoj.model.vo.judge.JudgeResultVO;
@@ -35,6 +36,11 @@ public interface JudgeService {
     List<SubmissionVO> getUserSubmissions(Long userId, int page, int size);
     
     /**
+     * 查询用户的提交记录列表（分页）
+     */
+    PageResult<SubmissionVO> getUserSubmissionsPage(Long userId, int page, int size);
+    
+    /**
      * 查询题目的提交记录列表
      */
     List<SubmissionVO> getProblemSubmissions(Long problemId, int page, int size);
@@ -53,4 +59,9 @@ public interface JudgeService {
      * 清除提交记录缓存
      */
     void clearSubmissionCache(Long submissionId);
+    
+    /**
+     * 获取用户提交统计
+     */
+    java.util.Map<String, Object> getUserSubmissionStats(Long userId);
 }

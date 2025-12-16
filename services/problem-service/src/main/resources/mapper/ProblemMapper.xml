@@ -241,7 +241,7 @@
     
     <!-- ==================== 管理员功能 ==================== -->
     
-    <!-- 查询题目列表（管理员） -->
+    <!-- 查询题目列表（管理员/教师） -->
     <select id="selectProblemListAdmin" resultMap="BaseResultMap">
         SELECT 
         <include refid="Base_Column_List" />
@@ -259,7 +259,10 @@
         <if test="status != null">
             AND status = #{status,jdbcType=INTEGER}
         </if>
-        ORDER BY id ASC
+        <if test="authorId != null">
+            AND author_id = #{authorId,jdbcType=BIGINT}
+        </if>
+        ORDER BY id DESC
         LIMIT #{offset}, #{limit}
     </select>
     
@@ -280,6 +283,19 @@
         <if test="status != null">
             AND status = #{status,jdbcType=INTEGER}
         </if>
+        <if test="authorId != null">
+            AND author_id = #{authorId,jdbcType=BIGINT}
+        </if>
+    </select>
+    
+    <!-- 查询热门题目（按提交次数排序） -->
+    <select id="selectHotProblems" resultMap="BaseResultMap">
+        SELECT 
+        <include refid="Base_Column_List" />
+        FROM problem
+        WHERE deleted = 0 AND status = 1 AND is_public = 1
+        ORDER BY submit_count DESC, accept_count DESC
+        LIMIT #{limit}
     </select>
     
 </mapper>

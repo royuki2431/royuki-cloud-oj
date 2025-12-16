@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Problem 服务降级工厂
@@ -23,9 +24,15 @@ public class ProblemServiceFallbackFactory implements FallbackFactory<ProblemSer
         
         return new ProblemServiceClient() {
             @Override
+            public Result<Map<String, Object>> getProblemById(Long problemId) {
+                log.warn("获取题目详情降级处理: problemId={}", problemId);
+                return Result.success(null);
+            }
+            
+            @Override
             public Result<List<TestCase>> getTestCases(Long problemId) {
                 log.warn("获取测试用例降级处理: problemId={}", problemId);
-                // 返回空列表，让评测服务使用默认测试用例
+                // 返回空列表，让评测服务使用题目样例
                 return Result.success(new ArrayList<>());
             }
             

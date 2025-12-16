@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cloudoj.course.mapper.HomeworkProblemMapper">
+    
+    <!-- 结果映射 -->
+    <resultMap id="BaseResultMap" type="com.cloudoj.course.entity.HomeworkProblem">
+        <id column="id" jdbcType="BIGINT" property="id" />
+        <result column="homework_id" jdbcType="BIGINT" property="homeworkId" />
+        <result column="problem_id" jdbcType="BIGINT" property="problemId" />
+        <result column="score" jdbcType="INTEGER" property="score" />
+        <result column="order_num" jdbcType="INTEGER" property="orderNum" />
+    </resultMap>
+    
+    <!-- 基础列 -->
+    <sql id="Base_Column_List">
+        id, homework_id, problem_id, score, order_num
+    </sql>
+    
+    <!-- 根据主键查询 -->
+    <select id="selectByPrimaryKey" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM homework_problem
+        WHERE id = #{id,jdbcType=BIGINT}
+    </select>
+    
+    <!-- 根据作业ID查询题目列表 -->
+    <select id="selectByHomeworkId" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM homework_problem
+        WHERE homework_id = #{homeworkId,jdbcType=BIGINT}
+        ORDER BY order_num ASC
+    </select>
+    
+    <!-- 根据作业ID和题目ID查询 -->
+    <select id="selectByHomeworkIdAndProblemId" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM homework_problem
+        WHERE homework_id = #{homeworkId,jdbcType=BIGINT}
+          AND problem_id = #{problemId,jdbcType=BIGINT}
+    </select>
+    
+    <!-- 插入 -->
+    <insert id="insert" parameterType="com.cloudoj.course.entity.HomeworkProblem" 
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO homework_problem (
+            homework_id, problem_id, score, order_num
+        )
+        VALUES (
+            #{homeworkId,jdbcType=BIGINT},
+            #{problemId,jdbcType=BIGINT},
+            #{score,jdbcType=INTEGER},
+            #{orderNum,jdbcType=INTEGER}
+        )
+    </insert>
+    
+    <!-- 批量插入 -->
+    <insert id="batchInsert">
+        INSERT INTO homework_problem (
+            homework_id, problem_id, score, order_num
+        )
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+        (
+            #{item.homeworkId,jdbcType=BIGINT},
+            #{item.problemId,jdbcType=BIGINT},
+            #{item.score,jdbcType=INTEGER},
+            #{item.orderNum,jdbcType=INTEGER}
+        )
+        </foreach>
+    </insert>
+    
+    <!-- 删除作业的所有题目 -->
+    <delete id="deleteByHomeworkId">
+        DELETE FROM homework_problem
+        WHERE homework_id = #{homeworkId,jdbcType=BIGINT}
+    </delete>
+    
+</mapper>

@@ -6,6 +6,7 @@ import com.cloudoj.common.annotation.RequireLogin;
 import com.cloudoj.common.annotation.RequireRole;
 import com.cloudoj.common.context.UserContext;
 import com.cloudoj.judge.service.JudgeService;
+import com.cloudoj.model.common.PageResult;
 import com.cloudoj.model.common.Result;
 import com.cloudoj.model.dto.judge.SubmitCodeRequest;
 import com.cloudoj.model.vo.judge.JudgeResultVO;
@@ -94,12 +95,11 @@ public class JudgeController {
      * 查询用户的提交记录列表
      */
     @GetMapping("/submissions/user/{userId}")
-    public Result<List<SubmissionVO>> getUserSubmissions(
+    public PageResult<SubmissionVO> getUserSubmissions(
             @PathVariable Long userId,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size) {
-        List<SubmissionVO> submissions = judgeService.getUserSubmissions(userId, page, size);
-        return Result.success(submissions);
+        return judgeService.getUserSubmissionsPage(userId, page, size);
     }
     
     /**
@@ -145,6 +145,18 @@ public class JudgeController {
             ip = request.getRemoteAddr();
         }
         return ip;
+    }
+    
+    // ==================== 统计接口 ====================
+    
+    /**
+     * 获取用户提交统计
+     */
+    @GetMapping("/statistics/user/{userId}")
+    public Result<java.util.Map<String, Object>> getUserSubmissionStats(@PathVariable Long userId) {
+        log.info("查询用户提交统计：userId={}", userId);
+        java.util.Map<String, Object> stats = judgeService.getUserSubmissionStats(userId);
+        return Result.success(stats);
     }
     
     // ==================== Sentinel 限流降级处理 ====================

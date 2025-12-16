@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cloudoj.course.mapper.ClassMapper">
+    
+    <!-- 结果映射 -->
+    <resultMap id="BaseResultMap" type="com.cloudoj.course.entity.CourseClass">
+        <id column="id" jdbcType="BIGINT" property="id" />
+        <result column="course_id" jdbcType="BIGINT" property="courseId" />
+        <result column="name" jdbcType="VARCHAR" property="name" />
+        <result column="code" jdbcType="VARCHAR" property="code" />
+        <result column="description" jdbcType="VARCHAR" property="description" />
+        <result column="teacher_id" jdbcType="BIGINT" property="teacherId" />
+        <result column="max_students" jdbcType="INTEGER" property="maxStudents" />
+        <result column="student_count" jdbcType="INTEGER" property="studentCount" />
+        <result column="status" jdbcType="INTEGER" property="status" />
+        <result column="created_time" jdbcType="TIMESTAMP" property="createdTime" />
+        <result column="updated_time" jdbcType="TIMESTAMP" property="updatedTime" />
+    </resultMap>
+    
+    <!-- 基础列 -->
+    <sql id="Base_Column_List">
+        id, course_id, name, code, description, teacher_id, max_students,
+        student_count, status, created_time, updated_time
+    </sql>
+    
+    <!-- 根据主键查询 -->
+    <select id="selectByPrimaryKey" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM class
+        WHERE id = #{id,jdbcType=BIGINT}
+        AND status = 1
+    </select>
+    
+    <!-- 根据邀请码查询 -->
+    <select id="selectByCode" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM class
+        WHERE code = #{code,jdbcType=VARCHAR}
+        AND status = 1
+    </select>
+    
+    <!-- 根据课程ID查询 -->
+    <select id="selectByCourseId" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM class
+        WHERE course_id = #{courseId,jdbcType=BIGINT}
+        AND status = 1
+        ORDER BY created_time DESC
+    </select>
+    
+    <!-- 根据教师ID查询 -->
+    <select id="selectByTeacherId" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM class
+        WHERE teacher_id = #{teacherId,jdbcType=BIGINT}
+        AND status = 1
+        ORDER BY created_time DESC
+    </select>
+    
+    <!-- 插入 -->
+    <insert id="insert" parameterType="com.cloudoj.course.entity.CourseClass" 
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO class (
+            course_id, name, code, description, teacher_id,
+            max_students, student_count, status, created_time, updated_time
+        )
+        VALUES (
+            #{courseId,jdbcType=BIGINT},
+            #{name,jdbcType=VARCHAR},
+            #{code,jdbcType=VARCHAR},
+            #{description,jdbcType=VARCHAR},
+            #{teacherId,jdbcType=BIGINT},
+            #{maxStudents,jdbcType=INTEGER},
+            0,
+            #{status,jdbcType=INTEGER},
+            NOW(), NOW()
+        )
+    </insert>
+    
+    <!-- 选择性插入 -->
+    <insert id="insertSelective" parameterType="com.cloudoj.course.entity.CourseClass" 
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO class
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="courseId != null">course_id,</if>
+            <if test="name != null">name,</if>
+            <if test="code != null">code,</if>
+            <if test="description != null">description,</if>
+            <if test="teacherId != null">teacher_id,</if>
+            <if test="maxStudents != null">max_students,</if>
+            <if test="status != null">status,</if>
+            student_count,
+            created_time, updated_time,
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="courseId != null">#{courseId,jdbcType=BIGINT},</if>
+            <if test="name != null">#{name,jdbcType=VARCHAR},</if>
+            <if test="code != null">#{code,jdbcType=VARCHAR},</if>
+            <if test="description != null">#{description,jdbcType=VARCHAR},</if>
+            <if test="teacherId != null">#{teacherId,jdbcType=BIGINT},</if>
+            <if test="maxStudents != null">#{maxStudents,jdbcType=INTEGER},</if>
+            <if test="status != null">#{status,jdbcType=INTEGER},</if>
+            0,
+            NOW(), NOW(),
+        </trim>
+    </insert>
+    
+    <!-- 选择性更新 -->
+    <update id="updateByPrimaryKeySelective" parameterType="com.cloudoj.course.entity.CourseClass">
+        UPDATE class
+        <set>
+            <if test="name != null">name = #{name,jdbcType=VARCHAR},</if>
+            <if test="description != null">description = #{description,jdbcType=VARCHAR},</if>
+            <if test="maxStudents != null">max_students = #{maxStudents,jdbcType=INTEGER},</if>
+            <if test="status != null">status = #{status,jdbcType=INTEGER},</if>
+            updated_time = NOW(),
+        </set>
+        WHERE id = #{id,jdbcType=BIGINT}
+    </update>
+    
+    <!-- 删除班级 -->
+    <update id="deleteByPrimaryKey">
+        UPDATE class
+        SET status = 0,
+            updated_time = NOW()
+        WHERE id = #{id,jdbcType=BIGINT}
+    </update>
+    
+    <!-- 更新学生人数 -->
+    <update id="updateStudentCount">
+        UPDATE class
+        SET student_count = IFNULL(student_count, 0) + #{increment,jdbcType=INTEGER},
+            updated_time = NOW()
+        WHERE id = #{id,jdbcType=BIGINT}
+    </update>
+    
+    <!-- 同步学生人数 -->
+    <update id="syncStudentCount">
+        UPDATE class
+        SET student_count = #{count,jdbcType=INTEGER},
+            updated_time = NOW()
+        WHERE id = #{id,jdbcType=BIGINT}
+    </update>
+    
+    <!-- 查询所有班级 -->
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM class
+        WHERE status = 1
+    </select>
+    
+</mapper>

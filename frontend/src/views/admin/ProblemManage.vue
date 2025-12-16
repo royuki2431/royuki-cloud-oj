@@ -92,6 +92,13 @@
                 </el-table-column>
                 <el-table-column prop="acceptCount" label="通过数" width="100" />
                 <el-table-column prop="submitCount" label="提交数" width="100" />
+                <el-table-column label="测试用例" width="90" align="center">
+                    <template #default="{ row }">
+                        <el-tag :type="row.testCaseCount > 0 ? 'success' : 'danger'" size="small">
+                            {{ row.testCaseCount || 0 }}
+                        </el-tag>
+                    </template>
+                </el-table-column>
                 <el-table-column prop="status" label="状态" width="100">
                     <template #default="{ row }">
                         <el-tag :type="row.status === 1 ? 'success' : 'info'">
@@ -265,6 +272,10 @@
                             </el-select>
                         </el-form-item>
 
+                        <el-form-item label="来源">
+                            <el-input v-model="problemForm.source" placeholder="请输入题目来源，如：LeetCode、牛客网、原创等" />
+                        </el-form-item>
+
                         <el-form-item label="状态" prop="status">
                             <el-radio-group v-model="problemForm.status">
                                 <el-radio :label="1">公开</el-radio>
@@ -366,6 +377,7 @@ import {
     deleteProblem,
     getTestCases,
     saveTestCases,
+    getTestCaseCount,
     type TestCaseItem
 } from '@/api/admin'
 
@@ -422,6 +434,7 @@ const problemForm = reactive({
     timeLimit: 1000,
     memoryLimit: 256,
     status: 1,
+    source: '',
 })
 
 // 表单验证规则
@@ -484,9 +497,20 @@ const loadProblems = async () => {
         // 解析tags字段
         problems.value = response.list.map(problem => ({
             ...problem,
-            tags: parseTags(problem.tags)
+            tags: parseTags(problem.tags),
+            testCaseCount: 0
         }))
         pagination.total = response.total
+        
+        // 加载每个题目的测试用例数量
+        for (const problem of problems.value) {
+            try {
+                const count = await getTestCaseCount(problem.id)
+                problem.testCaseCount = count || 0
+            } catch {
+                problem.testCaseCount = 0
+            }
+        }
     } catch (error: any) {
         ElMessage.error(error.message || '加载题目列表失败')
         // 如果API调用失败，显示空列表
@@ -518,6 +542,7 @@ const resetForm = () => {
     problemForm.timeLimit = 1000
     problemForm.memoryLimit = 256
     problemForm.status = 1
+    problemForm.source = ''
     editingProblem.value = null
     activeTab.value = 'basic'
     formRef.value?.resetFields()
@@ -550,6 +575,7 @@ const handleEdit = (problem: Problem) => {
     problemForm.timeLimit = problem.timeLimit || 1000
     problemForm.memoryLimit = problem.memoryLimit || 256
     problemForm.status = problem.status || 1
+    problemForm.source = problem.source || ''
     showDialog.value = true
 }
 
@@ -576,6 +602,7 @@ const handleSubmit = async () => {
                 timeLimit: problemForm.timeLimit,
                 memoryLimit: problemForm.memoryLimit,
                 status: problemForm.status,
+                source: problemForm.source,
             }
             
             if (editingProblem.value) {

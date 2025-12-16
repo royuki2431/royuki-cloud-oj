@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cloudoj.learning.mapper.WrongProblemMapper">
+    
+    <!-- 结果映射 -->
+    <resultMap id="BaseResultMap" type="com.cloudoj.learning.entity.WrongProblem">
+        <id column="id" jdbcType="BIGINT" property="id" />
+        <result column="user_id" jdbcType="BIGINT" property="userId" />
+        <result column="problem_id" jdbcType="BIGINT" property="problemId" />
+        <result column="submission_id" jdbcType="BIGINT" property="submissionId" />
+        <result column="error_type" jdbcType="VARCHAR" property="errorType" />
+        <result column="wrong_count" jdbcType="INTEGER" property="wrongCount" />
+        <result column="is_resolved" jdbcType="INTEGER" property="isResolved" />
+        <result column="resolved_time" jdbcType="TIMESTAMP" property="resolvedTime" />
+        <result column="created_time" jdbcType="TIMESTAMP" property="createdTime" />
+        <result column="updated_time" jdbcType="TIMESTAMP" property="updatedTime" />
+    </resultMap>
+    
+    <!-- 基础列 -->
+    <sql id="Base_Column_List">
+        id, user_id, problem_id, submission_id, error_type, wrong_count,
+        is_resolved, resolved_time, created_time, updated_time
+    </sql>
+    
+    <!-- 根据主键查询 -->
+    <select id="selectByPrimaryKey" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM wrong_problem
+        WHERE id = #{id,jdbcType=BIGINT}
+    </select>
+    
+    <!-- 根据用户ID和题目ID查询 -->
+    <select id="selectByUserAndProblem" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM wrong_problem
+        WHERE user_id = #{userId,jdbcType=BIGINT}
+        AND problem_id = #{problemId,jdbcType=BIGINT}
+        ORDER BY created_time DESC
+        LIMIT 1
+    </select>
+    
+    <!-- 根据用户ID查询错题列表 -->
+    <select id="selectByUserId" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM wrong_problem
+        WHERE user_id = #{userId,jdbcType=BIGINT}
+        ORDER BY created_time DESC
+    </select>
+    
+    <!-- 根据用户ID查询未解决的错题 -->
+    <select id="selectUnresolvedByUserId" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM wrong_problem
+        WHERE user_id = #{userId,jdbcType=BIGINT}
+        AND is_resolved = 0
+        ORDER BY created_time DESC
+    </select>
+    
+    <!-- 根据用户ID和错误类型查询 -->
+    <select id="selectByUserAndErrorType" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM wrong_problem
+        WHERE user_id = #{userId,jdbcType=BIGINT}
+        AND error_type = #{errorType,jdbcType=VARCHAR}
+        ORDER BY created_time DESC
+    </select>
+    
+    <!-- 删除错题记录 -->
+    <delete id="deleteByPrimaryKey" parameterType="java.lang.Long">
+        DELETE FROM wrong_problem WHERE id = #{id,jdbcType=BIGINT}
+    </delete>
+    
+    <!-- 插入 -->
+    <insert id="insert" parameterType="com.cloudoj.learning.entity.WrongProblem" 
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO wrong_problem (
+            user_id, problem_id, submission_id, error_type, wrong_count,
+            is_resolved, created_time, updated_time
+        )
+        VALUES (
+            #{userId,jdbcType=BIGINT},
+            #{problemId,jdbcType=BIGINT},
+            #{submissionId,jdbcType=BIGINT},
+            #{errorType,jdbcType=VARCHAR},
+            #{wrongCount,jdbcType=INTEGER},
+            0,
+            NOW(), NOW()
+        )
+    </insert>
+    
+    <!-- 选择性插入 -->
+    <insert id="insertSelective" parameterType="com.cloudoj.learning.entity.WrongProblem" 
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO wrong_problem
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="userId != null">user_id,</if>
+            <if test="problemId != null">problem_id,</if>
+            <if test="submissionId != null">submission_id,</if>
+            <if test="errorType != null">error_type,</if>
+            <if test="wrongCount != null">wrong_count,</if>
+            is_resolved,
+            created_time, updated_time,
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="userId != null">#{userId,jdbcType=BIGINT},</if>
+            <if test="problemId != null">#{problemId,jdbcType=BIGINT},</if>
+            <if test="submissionId != null">#{submissionId,jdbcType=BIGINT},</if>
+            <if test="errorType != null">#{errorType,jdbcType=VARCHAR},</if>
+            <if test="wrongCount != null">#{wrongCount,jdbcType=INTEGER},</if>
+            0,
+            NOW(), NOW(),
+        </trim>
+    </insert>
+    
+    <!-- 选择性更新 -->
+    <update id="updateByPrimaryKeySelective" parameterType="com.cloudoj.learning.entity.WrongProblem">
+        UPDATE wrong_problem
+        <set>
+            <if test="errorType != null">error_type = #{errorType,jdbcType=VARCHAR},</if>
+            <if test="wrongCount != null">wrong_count = #{wrongCount,jdbcType=INTEGER},</if>
+            <if test="isResolved != null">is_resolved = #{isResolved,jdbcType=INTEGER},</if>
+            <if test="resolvedTime != null">resolved_time = #{resolvedTime,jdbcType=TIMESTAMP},</if>
+            updated_time = NOW(),
+        </set>
+        WHERE id = #{id,jdbcType=BIGINT}
+    </update>
+    
+    <!-- 更新错误次数 -->
+    <update id="incrementWrongCount">
+        UPDATE wrong_problem
+        SET wrong_count = wrong_count + 1,
+            updated_time = NOW()
+        WHERE id = #{id,jdbcType=BIGINT}
+    </update>
+    
+    <!-- 标记为已解决 -->
+    <update id="markAsResolved">
+        UPDATE wrong_problem
+        SET is_resolved = 1,
+            resolved_time = NOW(),
+            updated_time = NOW()
+        WHERE id = #{id,jdbcType=BIGINT}
+    </update>
+    
+    <!-- 统计错题数 -->
+    <select id="countByUserId" resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM wrong_problem
+        WHERE user_id = #{userId,jdbcType=BIGINT}
+        <if test="isResolved != null">
+        AND is_resolved = #{isResolved,jdbcType=INTEGER}
+        </if>
+    </select>
+    
+</mapper>

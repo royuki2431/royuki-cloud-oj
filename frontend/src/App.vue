@@ -32,12 +32,13 @@
               <el-icon><Reading /></el-icon>
               <span>学生功能</span>
             </template>
-            <el-menu-item index="/my-courses">我的课程</el-menu-item>
+            <el-menu-item index="/my-classes">我的班级</el-menu-item>
             <el-menu-item index="/my-homework">我的作业</el-menu-item>
-            <el-menu-item index="/join-class">加入班级</el-menu-item>
+            <el-menu-item index="/training-path">训练路径</el-menu-item>
             <el-menu-item index="/wrong-problems">错题本</el-menu-item>
-            <el-menu-item index="/learning-notes">学习笔记</el-menu-item>
+            <el-menu-item index="/learning-progress">学习进度</el-menu-item>
             <el-menu-item index="/learning-stats">学习统计</el-menu-item>
+            <el-menu-item index="/learning-notes">学习笔记</el-menu-item>
           </el-sub-menu>
 
           <!-- 教师专属菜单 -->
@@ -46,10 +47,12 @@
               <el-icon><Management /></el-icon>
               <span>教学管理</span>
             </template>
+            <el-menu-item index="/teacher/problems">题库管理</el-menu-item>
             <el-menu-item index="/teacher/courses">课程管理</el-menu-item>
             <el-menu-item index="/teacher/classes">班级管理</el-menu-item>
             <el-menu-item index="/teacher/homework">作业管理</el-menu-item>
             <el-menu-item index="/teacher/students">学生管理</el-menu-item>
+            <el-menu-item index="/teacher/analysis">提交分析</el-menu-item>
           </el-sub-menu>
 
           <!-- 管理员专属菜单 -->

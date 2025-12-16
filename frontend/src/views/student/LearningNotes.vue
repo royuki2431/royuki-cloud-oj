@@ -40,7 +40,7 @@
         <div class="note-footer">
           <span class="note-time">{{ formatTime(note.updatedTime) }}</span>
           <span class="note-problem" v-if="note.problemId">
-            题目 #{{ note.problemId }}
+            {{ getProblemTitle(note.problemId) }}
           </span>
         </div>
         <div class="note-actions" @click.stop>
@@ -65,12 +65,20 @@
           <el-input v-model="noteForm.title" placeholder="请输入笔记标题" />
         </el-form-item>
         <el-form-item label="关联题目">
-          <el-input-number 
-            v-model="noteForm.problemId" 
-            :min="1" 
-            placeholder="题目ID（可选）"
-            style="width: 200px"
-          />
+          <el-select
+            v-model="noteForm.problemId"
+            placeholder="选择题目（可选）"
+            filterable
+            clearable
+            style="width: 300px"
+          >
+            <el-option
+              v-for="problem in problemList"
+              :key="problem.id"
+              :label="problem.title"
+              :value="problem.id"
+            />
+          </el-select>
         </el-form-item>
         <el-form-item label="内容" required>
           <el-input
@@ -80,9 +88,13 @@
             placeholder="请输入笔记内容，支持 Markdown 格式"
           />
         </el-form-item>
-        <el-form-item label="公开">
-          <el-switch v-model="noteForm.isPublic" />
-          <span class="switch-hint">公开后其他用户可以查看</span>
+        <el-form-item label="是否公开">
+          <el-switch 
+            v-model="noteForm.isPublic" 
+            active-text="公开"
+            inactive-text="私密"
+          />
+          <span class="switch-hint">公开后其他用户可以查看此笔记</span>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -97,7 +109,7 @@
     <el-dialog v-model="viewDialogVisible" :title="currentNote?.title" width="700px">
       <div class="note-view">
         <div class="note-meta">
-          <span v-if="currentNote?.problemId">关联题目：#{{ currentNote.problemId }}</span>
+          <span v-if="currentNote?.problemId">关联题目：{{ getProblemTitle(currentNote.problemId) }}</span>
           <span>更新时间：{{ formatTime(currentNote?.updatedTime) }}</span>
         </div>
         <div class="note-body" v-html="renderMarkdown(currentNote?.content || '')"></div>
@@ -120,6 +132,8 @@ import {
   type CreateNoteRequest,
   type UpdateNoteRequest
 } from '@/api/learning'
+import { getProblemById, getProblemList } from '@/api/problem'
+import type { Problem } from '@/types'
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -137,6 +151,9 @@ const noteForm = ref({
   problemId: undefined as number | undefined,
   isPublic: false
 })
+
+const problemMap = ref<Map<number, Problem>>(new Map())
+const problemList = ref<Problem[]>([])
 
 // 获取当前用户ID
 const getUserId = () => {
@@ -158,11 +175,54 @@ const loadNotes = async () => {
   loading.value = true
   try {
     notes.value = await getUserNotes(userId)
+    // 加载题目信息
+    await loadProblemInfo()
   } catch (error) {
     console.error('加载笔记失败:', error)
     ElMessage.error('加载笔记失败')
   } finally {
     loading.value = false
+  }
+}
+
+// 加载题目信息
+const loadProblemInfo = async () => {
+  const problemIds = notes.value
+    .filter(n => n.problemId)
+    .map(n => n.problemId)
+  const uniqueIds = [...new Set(problemIds)]
+  
+  const promises = uniqueIds.map(async (id) => {
+    if (!id) return
+    try {
+      const problem = await getProblemById(id)
+      if (problem) {
+        problemMap.value.set(id, problem)
+      }
+    } catch (error) {
+      console.error(`获取题目${id}信息失败:`, error)
+    }
+  })
+  
+  await Promise.all(promises)
+}
+
+// 获取题目名称
+const getProblemTitle = (problemId: number | undefined) => {
+  if (!problemId) return ''
+  const problem = problemMap.value.get(problemId)
+  return problem?.title || `题目 #${problemId}`
+}
+
+// 加载题目列表（用于下拉选择）
+const loadProblemList = async () => {
+  try {
+    const res = await getProblemList({ pageNum: 1, pageSize: 200 })
+    // 兼容不同的返回格式
+    problemList.value = res.records || res.list || []
+    console.log('加载题目列表:', problemList.value.length)
+  } catch (error) {
+    console.error('加载题目列表失败:', error)
   }
 }
 
@@ -303,6 +363,7 @@ const renderMarkdown = (content: string) => {
 
 onMounted(() => {
   loadNotes()
+  loadProblemList()
 })
 </script>
 
@@ -340,10 +401,18 @@ onMounted(() => {
 .note-card {
   cursor: pointer;
   transition: all 0.3s;
+  display: flex;
+  flex-direction: column;
   
   &:hover {
     transform: translateY(-4px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+  
+  :deep(.el-card__body) {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
   }
   
   .note-header {
@@ -363,6 +432,7 @@ onMounted(() => {
     font-size: 14px;
     line-height: 1.6;
     min-height: 60px;
+    flex: 1;
   }
   
   .note-footer {
@@ -374,7 +444,7 @@ onMounted(() => {
   }
   
   .note-actions {
-    margin-top: 12px;
+    margin-top: auto;
     padding-top: 12px;
     border-top: 1px solid #ebeef5;
     display: flex;

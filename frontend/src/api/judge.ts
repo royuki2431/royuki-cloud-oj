@@ -16,9 +16,18 @@ export function getSubmission(submissionId: number) {
     return request.get<any, Submission>(`/judge/submission/${submissionId}`)
 }
 
+// 分页响应类型
+export interface PageResponse<T> {
+    data: T[]
+    current: number
+    size: number
+    total: number
+    pages: number
+}
+
 // 分页查询用户提交
 export function getUserSubmissions(params: { userId: number; page: number; size: number }) {
-    return request.get<any, Submission[]>(`/judge/submissions/user/${params.userId}`, {
+    return request.get<any, PageResponse<Submission>>(`/judge/submissions/user/${params.userId}`, {
         params: { page: params.page, size: params.size }
     })
 }

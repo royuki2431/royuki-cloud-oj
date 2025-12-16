@@ -30,6 +30,11 @@ public class SubmissionVO implements Serializable {
     private String problemTitle;
     
     /**
+     * 题目难度（关联查询）
+     */
+    private String difficulty;
+    
+    /**
      * 用户ID
      */
     private Long userId;

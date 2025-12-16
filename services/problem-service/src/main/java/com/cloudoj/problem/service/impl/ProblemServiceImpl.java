@@ -139,13 +139,13 @@ public class ProblemServiceImpl implements ProblemService {
     // ==================== 管理员功能实现 ====================
     
     @Override
-    public List<Problem> getProblemListAdmin(String keyword, String difficulty, String category, Integer status, int offset, int limit) {
-        return problemMapper.selectProblemListAdmin(keyword, difficulty, category, status, offset, limit);
+    public List<Problem> getProblemListAdmin(String keyword, String difficulty, String category, Integer status, Long authorId, int offset, int limit) {
+        return problemMapper.selectProblemListAdmin(keyword, difficulty, category, status, authorId, offset, limit);
     }
     
     @Override
-    public int countProblems(String keyword, String difficulty, String category, Integer status) {
-        return problemMapper.countProblems(keyword, difficulty, category, status);
+    public int countProblems(String keyword, String difficulty, String category, Integer status, Long authorId) {
+        return problemMapper.countProblems(keyword, difficulty, category, status, authorId);
     }
     
     @Override

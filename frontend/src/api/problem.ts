@@ -2,8 +2,25 @@ import request from '@/utils/request'
 import type { Problem, TestCase } from '@/types'
 
 // 获取题目列表
-export function getProblemList(params: { pageNum: number; pageSize: number }) {
-    return request.get<any, { list: Problem[]; total: number; pageNum: number; pageSize: number }>('/problem/list', { params })
+export interface ProblemListParams {
+    page?: number
+    pageNum?: number
+    pageSize?: number
+    difficulty?: string
+    keyword?: string
+    tagId?: number
+}
+
+export interface ProblemListResponse {
+    records: Problem[]
+    list?: Problem[]
+    total: number
+    pageNum?: number
+    pageSize?: number
+}
+
+export function getProblemList(params: ProblemListParams) {
+    return request.get<any, ProblemListResponse>('/problem/list', { params })
 }
 
 // 获取题目详情

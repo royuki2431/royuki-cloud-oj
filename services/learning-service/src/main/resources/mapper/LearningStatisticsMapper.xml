@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cloudoj.learning.mapper.LearningStatisticsMapper">
+    
+    <!-- 结果映射 -->
+    <resultMap id="BaseResultMap" type="com.cloudoj.learning.entity.LearningStatistics">
+        <id column="id" jdbcType="BIGINT" property="id" />
+        <result column="user_id" jdbcType="BIGINT" property="userId" />
+        <result column="stat_date" jdbcType="DATE" property="statDate" />
+        <result column="submit_count" jdbcType="INTEGER" property="submitCount" />
+        <result column="accept_count" jdbcType="INTEGER" property="acceptCount" />
+        <result column="problem_solved" jdbcType="INTEGER" property="problemSolved" />
+        <result column="code_lines" jdbcType="INTEGER" property="codeLines" />
+        <result column="study_duration" jdbcType="INTEGER" property="studyDuration" />
+        <result column="created_time" jdbcType="TIMESTAMP" property="createdTime" />
+    </resultMap>
+    
+    <!-- 基础列 -->
+    <sql id="Base_Column_List">
+        id, user_id, stat_date, submit_count, accept_count, problem_solved, 
+        code_lines, study_duration, created_time
+    </sql>
+    
+    <!-- 根据主键查询 -->
+    <select id="selectByPrimaryKey" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM learning_statistics
+        WHERE id = #{id,jdbcType=BIGINT}
+    </select>
+    
+    <!-- 根据用户ID和日期查询 -->
+    <select id="selectByUserAndDate" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM learning_statistics
+        WHERE user_id = #{userId,jdbcType=BIGINT}
+        AND stat_date = #{statDate,jdbcType=DATE}
+    </select>
+    
+    <!-- 查询用户指定日期范围的统计数据 -->
+    <select id="selectByUserAndDateRange" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM learning_statistics
+        WHERE user_id = #{userId,jdbcType=BIGINT}
+        AND stat_date BETWEEN #{startDate,jdbcType=DATE} AND #{endDate,jdbcType=DATE}
+        ORDER BY stat_date ASC
+    </select>
+    
+    <!-- 查询用户总统计数据 -->
+    <select id="selectTotalsByUserId" resultType="java.util.Map">
+        SELECT 
+            COALESCE(SUM(submit_count), 0) as totalSubmissions,
+            COALESCE(SUM(accept_count), 0) as totalAccepted,
+            COALESCE(SUM(problem_solved), 0) as totalProblemsSolved,
+            COALESCE(SUM(code_lines), 0) as totalCodeLines,
+            COALESCE(SUM(study_duration), 0) as totalStudyDuration
+        FROM learning_statistics
+        WHERE user_id = #{userId,jdbcType=BIGINT}
+    </select>
+    
+    <!-- 查询排行榜 -->
+    <select id="selectLeaderboard" resultType="java.util.Map">
+        SELECT 
+            lp.user_id as userId,
+            COALESCE(SUM(ls.submit_count), 0) as totalSubmissions,
+            COALESCE(SUM(ls.accept_count), 0) as totalAccepted,
+            COUNT(DISTINCT CASE WHEN lp.status = 'COMPLETED' THEN lp.problem_id END) as totalProblemsSolved
+        FROM learning_progress lp
+        LEFT JOIN learning_statistics ls ON lp.user_id = ls.user_id
+        GROUP BY lp.user_id
+        ORDER BY totalProblemsSolved DESC, totalAccepted DESC
+        LIMIT #{limit}
+    </select>
+    
+    <!-- 插入 -->
+    <insert id="insert" parameterType="com.cloudoj.learning.entity.LearningStatistics" 
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO learning_statistics (
+            user_id, stat_date, submit_count, accept_count, problem_solved,
+            code_lines, study_duration, created_time
+        )
+        VALUES (
+            #{userId,jdbcType=BIGINT},
+            #{statDate,jdbcType=DATE},
+            #{submitCount,jdbcType=INTEGER},
+            #{acceptCount,jdbcType=INTEGER},
+            #{problemSolved,jdbcType=INTEGER},
+            #{codeLines,jdbcType=INTEGER},
+            #{studyDuration,jdbcType=INTEGER},
+            NOW()
+        )
+    </insert>
+    
+    <!-- 选择性插入 -->
+    <insert id="insertSelective" parameterType="com.cloudoj.learning.entity.LearningStatistics" 
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO learning_statistics
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="userId != null">user_id,</if>
+            <if test="statDate != null">stat_date,</if>
+            <if test="submitCount != null">submit_count,</if>
+            <if test="acceptCount != null">accept_count,</if>
+            <if test="problemSolved != null">problem_solved,</if>
+            <if test="codeLines != null">code_lines,</if>
+            <if test="studyDuration != null">study_duration,</if>
+            created_time,
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="userId != null">#{userId,jdbcType=BIGINT},</if>
+            <if test="statDate != null">#{statDate,jdbcType=DATE},</if>
+            <if test="submitCount != null">#{submitCount,jdbcType=INTEGER},</if>
+            <if test="acceptCount != null">#{acceptCount,jdbcType=INTEGER},</if>
+            <if test="problemSolved != null">#{problemSolved,jdbcType=INTEGER},</if>
+            <if test="codeLines != null">#{codeLines,jdbcType=INTEGER},</if>
+            <if test="studyDuration != null">#{studyDuration,jdbcType=INTEGER},</if>
+            NOW(),
+        </trim>
+    </insert>
+    
+    <!-- 选择性更新 -->
+    <update id="updateByPrimaryKeySelective" parameterType="com.cloudoj.learning.entity.LearningStatistics">
+        UPDATE learning_statistics
+        <set>
+            <if test="submitCount != null">submit_count = #{submitCount,jdbcType=INTEGER},</if>
+            <if test="acceptCount != null">accept_count = #{acceptCount,jdbcType=INTEGER},</if>
+            <if test="problemSolved != null">problem_solved = #{problemSolved,jdbcType=INTEGER},</if>
+            <if test="codeLines != null">code_lines = #{codeLines,jdbcType=INTEGER},</if>
+            <if test="studyDuration != null">study_duration = #{studyDuration,jdbcType=INTEGER},</if>
+        </set>
+        WHERE id = #{id,jdbcType=BIGINT}
+    </update>
+    
+    <!-- 更新统计数据（增量更新） -->
+    <update id="updateStatistics">
+        UPDATE learning_statistics
+        SET submit_count = submit_count + #{submitCount,jdbcType=INTEGER},
+            accept_count = accept_count + #{acceptCount,jdbcType=INTEGER},
+            problem_solved = problem_solved + #{problemSolved,jdbcType=INTEGER},
+            code_lines = code_lines + #{codeLines,jdbcType=INTEGER}
+        WHERE user_id = #{userId,jdbcType=BIGINT}
+        AND stat_date = #{statDate,jdbcType=DATE}
+    </update>
+    
+</mapper>

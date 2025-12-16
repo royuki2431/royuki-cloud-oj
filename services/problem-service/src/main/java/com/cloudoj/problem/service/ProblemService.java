@@ -57,16 +57,17 @@ public interface ProblemService {
     // ==================== 管理员功能 ====================
     
     /**
-     * 获取题目列表（管理员）
+     * 获取题目列表（管理员/教师）
      * @param keyword 搜索关键词
      * @param difficulty 难度
      * @param category 分类
      * @param status 状态
+     * @param authorId 作者ID，非空时只查询该作者的题目
      * @param offset 偏移量
      * @param limit 数量
      * @return 题目列表
      */
-    List<Problem> getProblemListAdmin(String keyword, String difficulty, String category, Integer status, int offset, int limit);
+    List<Problem> getProblemListAdmin(String keyword, String difficulty, String category, Integer status, Long authorId, int offset, int limit);
     
     /**
      * 统计题目数量
@@ -74,9 +75,10 @@ public interface ProblemService {
      * @param difficulty 难度
      * @param category 分类
      * @param status 状态
+     * @param authorId 作者ID，非空时只统计该作者的题目
      * @return 题目数量
      */
-    int countProblems(String keyword, String difficulty, String category, Integer status);
+    int countProblems(String keyword, String difficulty, String category, Integer status, Long authorId);
     
     /**
      * 更新题目状态

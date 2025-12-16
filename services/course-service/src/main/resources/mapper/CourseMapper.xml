@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cloudoj.course.mapper.CourseMapper">
+    
+    <!-- 结果映射 -->
+    <resultMap id="BaseResultMap" type="com.cloudoj.course.entity.Course">
+        <id column="id" jdbcType="BIGINT" property="id" />
+        <result column="name" jdbcType="VARCHAR" property="name" />
+        <result column="description" jdbcType="VARCHAR" property="description" />
+        <result column="cover_image" jdbcType="VARCHAR" property="coverImage" />
+        <result column="teacher_id" jdbcType="BIGINT" property="teacherId" />
+        <result column="semester" jdbcType="VARCHAR" property="semester" />
+        <result column="year" jdbcType="INTEGER" property="year" />
+        <result column="status" jdbcType="INTEGER" property="status" />
+        <result column="student_count" jdbcType="INTEGER" property="studentCount" />
+        <result column="created_time" jdbcType="TIMESTAMP" property="createdTime" />
+        <result column="updated_time" jdbcType="TIMESTAMP" property="updatedTime" />
+    </resultMap>
+    
+    <!-- 基础列 -->
+    <sql id="Base_Column_List">
+        id, name, description, cover_image, teacher_id, semester, year,
+        status, student_count, created_time, updated_time
+    </sql>
+    
+    <!-- 根据主键查询 -->
+    <select id="selectByPrimaryKey" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM course
+        WHERE id = #{id,jdbcType=BIGINT}
+        AND status = 1
+    </select>
+    
+    <!-- 根据教师ID查询 -->
+    <select id="selectByTeacherId" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM course
+        WHERE teacher_id = #{teacherId,jdbcType=BIGINT}
+        AND status = 1
+        ORDER BY created_time DESC
+    </select>
+    
+    <!-- 根据学生ID查询（通过班级关联） -->
+    <select id="selectByStudentId" resultMap="BaseResultMap">
+        SELECT DISTINCT c.*
+        FROM course c
+        INNER JOIN class cl ON c.id = cl.course_id
+        INNER JOIN student_class sc ON cl.id = sc.class_id
+        WHERE sc.student_id = #{studentId,jdbcType=BIGINT}
+        AND c.status = 1
+        AND cl.status = 1
+        AND sc.status = 1
+        ORDER BY c.created_time DESC
+    </select>
+    
+    <!-- 查询所有课程 -->
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM course
+        WHERE status = 1
+        ORDER BY created_time DESC
+        <if test="offset != null and limit != null">
+        LIMIT #{offset}, #{limit}
+        </if>
+    </select>
+    
+    <!-- 插入 -->
+    <insert id="insert" parameterType="com.cloudoj.course.entity.Course" 
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO course (
+            name, description, cover_image, teacher_id, semester, year,
+            status, student_count, created_time, updated_time
+        )
+        VALUES (
+            #{name,jdbcType=VARCHAR},
+            #{description,jdbcType=VARCHAR},
+            #{coverImage,jdbcType=VARCHAR},
+            #{teacherId,jdbcType=BIGINT},
+            #{semester,jdbcType=VARCHAR},
+            #{year,jdbcType=INTEGER},
+            #{status,jdbcType=INTEGER},
+            0,
+            NOW(), NOW()
+        )
+    </insert>
+    
+    <!-- 选择性插入 -->
+    <insert id="insertSelective" parameterType="com.cloudoj.course.entity.Course" 
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO course
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="name != null">name,</if>
+            <if test="description != null">description,</if>
+            <if test="coverImage != null">cover_image,</if>
+            <if test="teacherId != null">teacher_id,</if>
+            <if test="semester != null">semester,</if>
+            <if test="year != null">year,</if>
+            <if test="status != null">status,</if>
+            student_count,
+            created_time, updated_time,
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="name != null">#{name,jdbcType=VARCHAR},</if>
+            <if test="description != null">#{description,jdbcType=VARCHAR},</if>
+            <if test="coverImage != null">#{coverImage,jdbcType=VARCHAR},</if>
+            <if test="teacherId != null">#{teacherId,jdbcType=BIGINT},</if>
+            <if test="semester != null">#{semester,jdbcType=VARCHAR},</if>
+            <if test="year != null">#{year,jdbcType=INTEGER},</if>
+            <if test="status != null">#{status,jdbcType=INTEGER},</if>
+            0,
+            NOW(), NOW(),
+        </trim>
+    </insert>
+    
+    <!-- 选择性更新 -->
+    <update id="updateByPrimaryKeySelective" parameterType="com.cloudoj.course.entity.Course">
+        UPDATE course
+        <set>
+            <if test="name != null">name = #{name,jdbcType=VARCHAR},</if>
+            <if test="description != null">description = #{description,jdbcType=VARCHAR},</if>
+            <if test="coverImage != null">cover_image = #{coverImage,jdbcType=VARCHAR},</if>
+            <if test="semester != null">semester = #{semester,jdbcType=VARCHAR},</if>
+            <if test="year != null">year = #{year,jdbcType=INTEGER},</if>
+            <if test="status != null">status = #{status,jdbcType=INTEGER},</if>
+            updated_time = NOW(),
+        </set>
+        WHERE id = #{id,jdbcType=BIGINT}
+    </update>
+    
+    <!-- 删除课程（逻辑删除） -->
+    <update id="deleteByPrimaryKey">
+        UPDATE course
+        SET status = 0,
+            updated_time = NOW()
+        WHERE id = #{id,jdbcType=BIGINT}
+    </update>
+    
+    <!-- 更新学生人数 -->
+    <update id="updateStudentCount">
+        UPDATE course
+        SET student_count = IFNULL(student_count, 0) + #{increment,jdbcType=INTEGER},
+            updated_time = NOW()
+        WHERE id = #{id,jdbcType=BIGINT}
+    </update>
+    
+    <!-- 同步学生人数 -->
+    <update id="syncStudentCount">
+        UPDATE course
+        SET student_count = #{count,jdbcType=INTEGER},
+            updated_time = NOW()
+        WHERE id = #{id,jdbcType=BIGINT}
+    </update>
+    
+    <!-- 查询所有课程（不分页） -->
+    <select id="selectAllCourses" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM course
+        WHERE status = 1
+    </select>
+    
+</mapper>

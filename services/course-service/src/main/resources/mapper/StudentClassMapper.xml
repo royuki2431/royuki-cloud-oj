@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cloudoj.course.mapper.StudentClassMapper">
+    
+    <!-- 结果映射 -->
+    <resultMap id="BaseResultMap" type="com.cloudoj.course.entity.StudentClass">
+        <id column="id" jdbcType="BIGINT" property="id" />
+        <result column="student_id" jdbcType="BIGINT" property="studentId" />
+        <result column="class_id" jdbcType="BIGINT" property="classId" />
+        <result column="join_time" jdbcType="TIMESTAMP" property="joinTime" />
+        <result column="status" jdbcType="INTEGER" property="status" />
+    </resultMap>
+    
+    <!-- 基础列 -->
+    <sql id="Base_Column_List">
+        id, student_id, class_id, join_time, status
+    </sql>
+    
+    <!-- 根据主键查询 -->
+    <select id="selectByPrimaryKey" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM student_class
+        WHERE id = #{id,jdbcType=BIGINT}
+    </select>
+    
+    <!-- 根据学生ID和班级ID查询 -->
+    <select id="selectByStudentIdAndClassId" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM student_class
+        WHERE student_id = #{studentId,jdbcType=BIGINT}
+        AND class_id = #{classId,jdbcType=BIGINT}
+    </select>
+    
+    <!-- 根据班级ID查询学生列表 -->
+    <select id="selectByClassId" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM student_class
+        WHERE class_id = #{classId,jdbcType=BIGINT}
+        AND status = 1
+        ORDER BY join_time DESC
+    </select>
+    
+    <!-- 根据学生ID查询班级列表 -->
+    <select id="selectByStudentId" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM student_class
+        WHERE student_id = #{studentId,jdbcType=BIGINT}
+        AND status = 1
+        ORDER BY join_time DESC
+    </select>
+    
+    <!-- 插入 -->
+    <insert id="insert" parameterType="com.cloudoj.course.entity.StudentClass" 
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO student_class (
+            student_id, class_id, join_time, status
+        )
+        VALUES (
+            #{studentId,jdbcType=BIGINT},
+            #{classId,jdbcType=BIGINT},
+            #{joinTime,jdbcType=TIMESTAMP},
+            #{status,jdbcType=INTEGER}
+        )
+    </insert>
+    
+    <!-- 选择性插入 -->
+    <insert id="insertSelective" parameterType="com.cloudoj.course.entity.StudentClass" 
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO student_class
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="studentId != null">student_id,</if>
+            <if test="classId != null">class_id,</if>
+            <if test="joinTime != null">join_time,</if>
+            <if test="status != null">status,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="studentId != null">#{studentId,jdbcType=BIGINT},</if>
+            <if test="classId != null">#{classId,jdbcType=BIGINT},</if>
+            <if test="joinTime != null">#{joinTime,jdbcType=TIMESTAMP},</if>
+            <if test="status != null">#{status,jdbcType=INTEGER},</if>
+        </trim>
+    </insert>
+    
+    <!-- 更新状态 -->
+    <update id="updateStatus">
+        UPDATE student_class
+        SET status = #{status,jdbcType=INTEGER}
+        WHERE id = #{id,jdbcType=BIGINT}
+    </update>
+    
+    <!-- 选择性更新 -->
+    <update id="updateByPrimaryKeySelective" parameterType="com.cloudoj.course.entity.StudentClass">
+        UPDATE student_class
+        <set>
+            <if test="studentId != null">student_id = #{studentId,jdbcType=BIGINT},</if>
+            <if test="classId != null">class_id = #{classId,jdbcType=BIGINT},</if>
+            <if test="joinTime != null">join_time = #{joinTime,jdbcType=TIMESTAMP},</if>
+            <if test="status != null">status = #{status,jdbcType=INTEGER},</if>
+        </set>
+        WHERE id = #{id,jdbcType=BIGINT}
+    </update>
+    
+    <!-- 统计班级学生数 -->
+    <select id="countByClassId" resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM student_class
+        WHERE class_id = #{classId,jdbcType=BIGINT}
+        AND status = 1
+    </select>
+    
+</mapper>

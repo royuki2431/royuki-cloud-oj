@@ -3,7 +3,7 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <span class="title">排行榜</span>
+          <span class="title">全站排行榜</span>
           <el-button :icon="Refresh" @click="loadRanking">刷新</el-button>
         </div>
       </template>
@@ -14,8 +14,9 @@
         stripe
         style="width: 100%"
         :row-class-name="tableRowClassName"
+        @sort-change="handleSortChange"
       >
-        <el-table-column label="排名" width="100">
+        <el-table-column label="排名" width="80">
           <template #default="{ row }">
             <div class="rank-cell">
               <el-icon v-if="row.rank === 1" class="rank-icon gold">
@@ -32,28 +33,35 @@
           </template>
         </el-table-column>
 
-        <el-table-column prop="username" label="用户名" min-width="150" />
+        <el-table-column prop="realName" label="姓名" width="80" align="center" />
 
-        <el-table-column prop="solvedCount" label="解决题目" width="120" sortable>
+        <el-table-column prop="username" label="用户名" min-width="120" />
+
+        <el-table-column prop="school" label="学校" min-width="150" />
+
+        <el-table-column prop="totalProblemsSolved" label="解决题目" width="110" align="center" sortable="custom">
           <template #default="{ row }">
-            <el-tag type="success">{{ row.solvedCount }}</el-tag>
+            <el-tag type="success">{{ row.totalProblemsSolved || 0 }}</el-tag>
           </template>
         </el-table-column>
 
-        <el-table-column prop="totalSubmissions" label="总提交" width="120" sortable />
+        <el-table-column prop="totalSubmissions" label="总提交" width="100" align="center" sortable="custom" />
 
-        <el-table-column label="通过率" width="150" sortable>
+        <el-table-column prop="totalAccepted" label="通过次数" width="120" align="center" sortable="custom" />
+
+        <el-table-column prop="acceptRate" label="通过率" width="130" sortable="custom">
           <template #default="{ row }">
             <el-progress
-              :percentage="row.acceptRate"
-              :color="getProgressColor(row.acceptRate)"
+              :percentage="row.acceptRate || 0"
+              :color="getProgressColor(row.acceptRate || 0)"
+              :stroke-width="10"
             />
           </template>
         </el-table-column>
 
-        <el-table-column prop="score" label="总分" width="120" sortable>
+        <el-table-column prop="totalScore" label="总分" width="100" align="center" sortable="custom">
           <template #default="{ row }">
-            <span class="score">{{ row.score }}</span>
+            <span class="score">{{ row.totalScore || 0 }}</span>
           </template>
         </el-table-column>
       </el-table>
@@ -62,11 +70,11 @@
         v-model:current-page="currentPage"
         v-model:page-size="pageSize"
         :total="total"
-        :page-sizes="[10, 20, 50, 100]"
+        :page-sizes="[20, 50, 100]"
         layout="total, sizes, prev, pager, next, jumper"
         style="margin-top: 20px; justify-content: center"
-        @current-change="loadRanking"
-        @size-change="loadRanking"
+        @current-change="applySort"
+        @size-change="applySort"
       />
     </el-card>
   </div>
@@ -76,50 +84,96 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Trophy, Refresh } from '@element-plus/icons-vue'
-import type { RankingItem } from '@/types'
+import request from '@/utils/request'
+
+interface RankingItem {
+  rank: number
+  userId: number
+  username: string
+  realName: string
+  school: string
+  totalProblemsSolved: number
+  totalSubmissions: number
+  totalAccepted: number
+  totalScore: number
+  acceptRate: number
+}
 
 // 分页参数
 const currentPage = ref(1)
-const pageSize = ref(10)
+const pageSize = ref(20)
 const total = ref(0)
 
 // 数据
 const loading = ref(false)
 const rankings = ref<RankingItem[]>([])
+const allData = ref<RankingItem[]>([])
 
-// 加载排行榜数据（模拟数据，后续接入真实API）
+// 排序参数
+const sortProp = ref('')
+const sortOrder = ref('')
+
+// 加载排行榜数据
 const loadRanking = async () => {
   loading.value = true
   try {
-    // 模拟API调用
-    await new Promise((resolve) => setTimeout(resolve, 500))
-
-    // 生成模拟数据
-    const mockData: RankingItem[] = Array.from({ length: 50 }, (_, i) => ({
-      rank: i + 1,
-      userId: i + 1,
-      username: `user${i + 1}`,
-      solvedCount: Math.floor(Math.random() * 100),
-      totalSubmissions: Math.floor(Math.random() * 500) + 100,
-      acceptRate: Math.floor(Math.random() * 50) + 50,
-      score: Math.floor(Math.random() * 5000) + 1000,
-    })).sort((a, b) => b.score - a.score)
-
-    // 更新排名
-    mockData.forEach((item, index) => {
+    const res = await request.get('/learning/statistics/leaderboard', {
+      params: { limit: 100 }
+    })
+    
+    const data = res || []
+    // 计算通过率并添加排名
+    data.forEach((item: any, index: number) => {
+      item.acceptRate = item.totalSubmissions > 0 
+        ? Math.round((item.totalAccepted / item.totalSubmissions) * 100) 
+        : 0
       item.rank = index + 1
     })
-
-    const start = (currentPage.value - 1) * pageSize.value
-    const end = start + pageSize.value
-
-    rankings.value = mockData.slice(start, end)
-    total.value = mockData.length
+    
+    allData.value = data
+    applySort()
   } catch (error: any) {
-    ElMessage.error(error.message || '加载失败')
+    ElMessage.error(error.message || '加载排行榜失败')
   } finally {
     loading.value = false
   }
+}
+
+// 应用排序和分页
+const applySort = () => {
+  let data = [...allData.value]
+  
+  // 排序
+  if (sortProp.value && sortOrder.value) {
+    data.sort((a: any, b: any) => {
+      const valA = a[sortProp.value] || 0
+      const valB = b[sortProp.value] || 0
+      if (sortOrder.value === 'ascending') {
+        return valA - valB
+      } else {
+        return valB - valA
+      }
+    })
+  }
+  
+  // 重新计算排名
+  data.forEach((item, index) => {
+    item.rank = index + 1
+  })
+  
+  // 分页处理
+  const start = (currentPage.value - 1) * pageSize.value
+  const end = start + pageSize.value
+  rankings.value = data.slice(start, end)
+  total.value = data.length
+}
+
+// 处理排序变化
+const handleSortChange = ({ prop, order }: { prop: string, order: string }) => {
+  sortProp.value = prop
+  sortOrder.value = order
+  currentPage.value = 1
+  applySort()
 }
 
 // 获取进度条颜色

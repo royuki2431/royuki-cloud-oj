@@ -29,6 +29,9 @@ public class ProblemController {
     @Autowired
     TestCaseMapper testCaseMapper;
     
+    @Autowired
+    com.cloudoj.problem.service.ProblemCacheService problemCacheService;
+    
     /**
      * 健康检查
      */
@@ -50,13 +53,48 @@ public class ProblemController {
     }
     
     /**
-     * 获取题目详情
+     * 获取题目详情（使用缓存）
      */
     @GetMapping("/{id}")
     public Result<Problem> getProblemById(@PathVariable Long id) {
         log.info("查询题目详情：id={}", id);
-        Problem problem = problemService.getProblemById(id);
+        // 增加访问量
+        problemCacheService.incrementViewCount(id);
+        // 从缓存获取
+        Problem problem = problemCacheService.getProblemById(id);
         return Result.success(problem);
+    }
+    
+    /**
+     * 获取热门题目列表
+     */
+    @GetMapping("/hot")
+    public Result<List<Problem>> getHotProblems(
+            @RequestParam(defaultValue = "10") Integer limit) {
+        log.info("查询热门题目：limit={}", limit);
+        List<Problem> problems = problemCacheService.getHotProblems(limit);
+        return Result.success(problems);
+    }
+    
+    /**
+     * 获取题目访问量排行
+     */
+    @GetMapping("/view-ranking")
+    public Result<List<Map<String, Object>>> getViewRanking(
+            @RequestParam(defaultValue = "10") Integer limit) {
+        log.info("查询题目访问量排行：limit={}", limit);
+        List<Map<String, Object>> ranking = problemCacheService.getViewRanking(limit);
+        return Result.success(ranking);
+    }
+    
+    /**
+     * 获取题目统计信息（使用缓存）
+     */
+    @GetMapping("/stats/{id}")
+    public Result<Map<String, Object>> getProblemStats(@PathVariable Long id) {
+        log.info("查询题目统计信息：id={}", id);
+        Map<String, Object> stats = problemCacheService.getProblemStats(id);
+        return Result.success(stats);
     }
     
     /**
@@ -123,6 +161,8 @@ public class ProblemController {
     public Result<Void> updateProblem(@Validated @RequestBody Problem problem) {
         log.info("更新题目：id={}", problem.getId());
         problemService.updateProblem(problem);
+        // 清除缓存
+        problemCacheService.clearProblemCache(problem.getId());
         return Result.success("更新成功", null);
     }
     
@@ -133,6 +173,8 @@ public class ProblemController {
     public Result<Void> deleteProblem(@PathVariable Long id) {
         log.info("删除题目：id={}", id);
         problemService.deleteProblem(id);
+        // 清除缓存
+        problemCacheService.clearProblemCache(id);
         return Result.success("删除成功", null);
     }
     

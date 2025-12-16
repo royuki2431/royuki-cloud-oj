@@ -7,9 +7,17 @@ export interface LearningProgress {
   userId: number
   problemId: number
   status: string
-  attemptCount: number
-  lastAttemptTime: string
-  solvedTime: string | null
+  submitCount: number
+  acceptCount: number
+  firstSubmitTime: string | null
+  lastSubmitTime: string | null
+  firstAcceptTime: string | null
+  bestScore: number
+  executionTime: number | null
+  // 兼容旧字段
+  attemptCount?: number
+  lastAttemptTime?: string
+  solvedTime?: string | null
 }
 
 export function getLearningProgress(userId: number, problemId: number) {
@@ -19,13 +27,27 @@ export function getLearningProgress(userId: number, problemId: number) {
 }
 
 export function getUserProgressList(userId: number) {
-  return request.get<any, LearningProgress[]>('/learning/progress/list', {
+  return request.get<any, LearningProgress[]>('/learning/progress', {
     params: { userId }
   })
 }
 
+export interface LearningSummary {
+  solvedCount: number
+  totalProblems: number
+  totalSubmissions: number
+  acceptedCount: number
+  easySolved: number
+  mediumSolved: number
+  hardSolved: number
+  easyTotal: number
+  mediumTotal: number
+  hardTotal: number
+  streak: number
+}
+
 export function getLearningSummary(userId: number) {
-  return request.get<any, any>('/learning/summary', {
+  return request.get<any, LearningSummary>('/learning/summary', {
     params: { userId }
   })
 }
@@ -170,4 +192,9 @@ export function getLeaderboard(limit: number = 10) {
   return request.get<any, any[]>('/learning/statistics/leaderboard', {
     params: { limit }
   })
+}
+
+// 获取班级题库训练排行榜
+export function getClassLeaderboard(classId: number) {
+  return request.get<any, any[]>(`/course/statistics/practice/${classId}`)
 }

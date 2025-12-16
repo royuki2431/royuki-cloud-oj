@@ -28,16 +28,21 @@ public class JavaSandbox implements LanguageSandbox {
     private static final String DOCKER_IMAGE = "cimg/openjdk:17.0";
     private static final String MAIN_CLASS = "Solution";
     
+    // 保存当前评测的内存限制
+    private ThreadLocal<Integer> currentMemoryLimit = ThreadLocal.withInitial(() -> 256);
+    
     @Override
     public JudgeResult judge(String code, List<JudgeTestCase> testCases, int timeLimit, int memoryLimit) {
         String workDir = null;
         String subDir = null;
+        currentMemoryLimit.set(memoryLimit);
         
         try {
             // 创建工作目录（在共享目录下创建子目录）
             workDir = dockerSandbox.createWorkDir();
             subDir = dockerSandbox.getSubDirName(workDir);
-            log.info("Java评测开始, workDir={}, subDir={}", workDir, subDir);
+            log.info("Java评测开始, workDir={}, subDir={}, timeLimit={}ms, memoryLimit={}MB", 
+                    workDir, subDir, timeLimit, memoryLimit);
             
             // 获取或创建容器池中的容器（挂载共享目录）
             String pooledContainerId = dockerSandbox.getOrCreatePooledContainer(DOCKER_IMAGE);
@@ -51,7 +56,7 @@ public class JavaSandbox implements LanguageSandbox {
             // 编译代码
             DockerSandbox.DockerExecuteResult compileResult = usePooledContainer 
                     ? compileInContainer(pooledContainerId, subDir, timeLimit)
-                    : compile(workDir, timeLimit);
+                    : compile(workDir, timeLimit, memoryLimit);
             if (!compileResult.isSuccess()) {
                 log.warn("编译失败: {}", compileResult.getError());
                 return JudgeResult.builder()
@@ -83,7 +88,7 @@ public class JavaSandbox implements LanguageSandbox {
                 // 运行代码（优先使用容器池）
                 DockerSandbox.DockerExecuteResult runResult = usePooledContainer
                         ? runInContainer(pooledContainerId, subDir, timeLimit)
-                        : run(workDir, timeLimit);
+                        : run(workDir, timeLimit, memoryLimit);
                 
                 maxTime = Math.max(maxTime, runResult.getExecuteTime());  // 取最大运行时间
                 maxMemory = Math.max(maxMemory, runResult.getMemoryUsed() / 1024); // 转换为KB
@@ -156,13 +161,13 @@ public class JavaSandbox implements LanguageSandbox {
     /**
      * 编译Java代码（传统模式）
      */
-    private DockerSandbox.DockerExecuteResult compile(String workDir, int timeLimit) {
+    private DockerSandbox.DockerExecuteResult compile(String workDir, int timeLimit, int memoryLimit) {
         String[] command = new String[]{
                 "sh", "-c",
                 "javac " + MAIN_CLASS + ".java 2>&1"
         };
         
-        return dockerSandbox.execute(DOCKER_IMAGE, command, workDir, timeLimit / 1000);
+        return dockerSandbox.execute(DOCKER_IMAGE, command, workDir, timeLimit / 1000, memoryLimit);
     }
     
     /**
@@ -180,13 +185,14 @@ public class JavaSandbox implements LanguageSandbox {
     /**
      * 运行Java代码（传统模式）
      */
-    private DockerSandbox.DockerExecuteResult run(String workDir, int timeLimit) {
+    private DockerSandbox.DockerExecuteResult run(String workDir, int timeLimit, int memoryLimit) {
+        // 使用-Xmx限制JVM堆内存
         String[] command = new String[]{
                 "sh", "-c",
-                "timeout " + (timeLimit / 1000) + "s java " + MAIN_CLASS + " < input.txt 2>&1"
+                "timeout " + (timeLimit / 1000) + "s java -Xmx" + memoryLimit + "m " + MAIN_CLASS + " < input.txt 2>&1"
         };
         
-        return dockerSandbox.execute(DOCKER_IMAGE, command, workDir, timeLimit / 1000 + 1);
+        return dockerSandbox.execute(DOCKER_IMAGE, command, workDir, timeLimit / 1000 + 1, memoryLimit);
     }
     
     /**

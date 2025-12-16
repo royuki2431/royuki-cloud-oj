@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Problem 服务 Feign 客户端
@@ -19,6 +20,12 @@ import java.util.List;
     fallbackFactory = ProblemServiceFallbackFactory.class
 )
 public interface ProblemServiceClient {
+    
+    /**
+     * 获取题目详情
+     */
+    @GetMapping("/problem/{problemId}")
+    Result<Map<String, Object>> getProblemById(@PathVariable("problemId") Long problemId);
     
     /**
      * 获取题目的测试用例

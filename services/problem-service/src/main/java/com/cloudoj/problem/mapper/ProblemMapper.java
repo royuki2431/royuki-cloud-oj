@@ -72,20 +72,29 @@ public interface ProblemMapper {
     // ==================== 管理员功能 ====================
     
     /**
-     * 查询题目列表（管理员）
+     * 查询题目列表（管理员/教师）
+     * @param authorId 作者ID，非空时只查询该作者的题目
      */
     List<Problem> selectProblemListAdmin(@Param("keyword") String keyword,
                                          @Param("difficulty") String difficulty,
                                          @Param("category") String category,
                                          @Param("status") Integer status,
+                                         @Param("authorId") Long authorId,
                                          @Param("offset") int offset,
                                          @Param("limit") int limit);
     
     /**
      * 统计题目数量
+     * @param authorId 作者ID，非空时只统计该作者的题目
      */
     int countProblems(@Param("keyword") String keyword,
                       @Param("difficulty") String difficulty,
                       @Param("category") String category,
-                      @Param("status") Integer status);
+                      @Param("status") Integer status,
+                      @Param("authorId") Long authorId);
+    
+    /**
+     * 查询热门题目（按提交次数排序）
+     */
+    List<Problem> selectHotProblems(@Param("limit") int limit);
 }

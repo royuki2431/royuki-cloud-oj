@@ -12,10 +12,11 @@
                     <el-form-item label="邀请码" prop="inviteCode">
                         <el-input
                             v-model="joinForm.inviteCode"
-                            placeholder="请输入6位邀请码"
-                            maxlength="6"
+                            placeholder="请输入邀请码"
+                            maxlength="8"
                             show-word-limit
                             clearable
+                            @keyup.enter="handleJoin"
                         />
                     </el-form-item>
                     
@@ -36,7 +37,7 @@
                         <template #default>
                             <ul>
                                 <li>邀请码由教师创建班级时生成</li>
-                                <li>邀请码为6位字符，不区分大小写</li>
+                                <li>邀请码为6-8位字符，不区分大小写</li>
                                 <li>加入班级后可以查看课程和作业</li>
                             </ul>
                         </template>
@@ -53,10 +54,20 @@ import { ElMessage } from 'element-plus'
 import { Postcard } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import { useRouter } from 'vue-router'
+import request from '@/utils/request'
 
 const router = useRouter()
 const formRef = ref<FormInstance>()
 const loading = ref(false)
+
+// 获取当前用户ID
+const getUserId = () => {
+    const userInfo = localStorage.getItem('userInfo')
+    if (userInfo) {
+        return JSON.parse(userInfo).id
+    }
+    return null
+}
 
 const joinForm = reactive({
     inviteCode: '',
@@ -65,7 +76,7 @@ const joinForm = reactive({
 const rules: FormRules = {
     inviteCode: [
         { required: true, message: '请输入邀请码', trigger: 'blur' },
-        { len: 6, message: '邀请码为6位字符', trigger: 'blur' },
+        { min: 6, max: 8, message: '邀请码为6-8位字符', trigger: 'blur' },
     ],
 }
 
@@ -75,14 +86,19 @@ const handleJoin = async () => {
     await formRef.value.validate(async (valid) => {
         if (!valid) return
         
+        const userId = getUserId()
+        if (!userId) {
+            ElMessage.warning('请先登录')
+            return
+        }
+        
         loading.value = true
         try {
-            // TODO: 调用API加入班级
-            await new Promise(resolve => setTimeout(resolve, 1000))
+            await request.post(`/course/class/join?studentId=${userId}&inviteCode=${joinForm.inviteCode.toUpperCase()}`)
             ElMessage.success('加入班级成功！')
-            router.push('/my-courses')
+            router.push('/my-classes')
         } catch (error: any) {
-            ElMessage.error(error.message || '加入班级失败')
+            ElMessage.error(error.response?.data?.message || error.message || '加入班级失败')
         } finally {
             loading.value = false
         }

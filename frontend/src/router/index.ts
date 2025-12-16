@@ -68,10 +68,10 @@ const routes: RouteRecordRaw[] = [
     },
     // ==================== 学生功能 ====================
     {
-        path: '/my-courses',
-        name: 'MyCourses',
+        path: '/my-classes',
+        name: 'MyClasses',
         component: () => import('@/views/student/MyCourses.vue'),
-        meta: { title: '我的课程', requiresAuth: true },
+        meta: { title: '我的班级', requiresAuth: true },
     },
     {
         path: '/my-homework',
@@ -79,11 +79,10 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/student/MyHomework.vue'),
         meta: { title: '我的作业', requiresAuth: true },
     },
+    // 加入班级功能已融入"我的班级"页面，保留路由以兼容旧链接
     {
         path: '/join-class',
-        name: 'JoinClass',
-        component: () => import('@/views/student/JoinClass.vue'),
-        meta: { title: '加入班级', requiresAuth: true },
+        redirect: '/my-classes',
     },
     {
         path: '/wrong-problems',
@@ -102,6 +101,30 @@ const routes: RouteRecordRaw[] = [
         name: 'LearningStats',
         component: () => import('@/views/student/LearningStats.vue'),
         meta: { title: '学习统计', requiresAuth: true },
+    },
+    {
+        path: '/learning-progress',
+        name: 'LearningProgress',
+        component: () => import('@/views/student/LearningProgress.vue'),
+        meta: { title: '学习进度', requiresAuth: true },
+    },
+    {
+        path: '/training-path',
+        name: 'TrainingPath',
+        component: () => import('@/views/student/TrainingPath.vue'),
+        meta: { title: '训练路径', requiresAuth: true },
+    },
+    {
+        path: '/course/:id',
+        name: 'CourseDetail',
+        component: () => import('@/views/student/CourseDetail.vue'),
+        meta: { title: '课程详情', requiresAuth: true },
+    },
+    {
+        path: '/homework/:id',
+        name: 'HomeworkDetail',
+        component: () => import('@/views/student/HomeworkDetail.vue'),
+        meta: { title: '作业详情', requiresAuth: true },
     },
     // ==================== 教师功能 ====================
     {
@@ -127,6 +150,24 @@ const routes: RouteRecordRaw[] = [
         name: 'TeacherStudents',
         component: () => import('@/views/teacher/StudentManage.vue'),
         meta: { title: '学生管理', requiresAuth: true, requiredRole: UserRole.TEACHER },
+    },
+    {
+        path: '/teacher/problems',
+        name: 'TeacherProblems',
+        component: () => import('@/views/teacher/ProblemManage.vue'),
+        meta: { title: '题库管理', requiresAuth: true, requiredRole: UserRole.TEACHER },
+    },
+    {
+        path: '/teacher/analysis',
+        name: 'TeacherAnalysis',
+        component: () => import('@/views/teacher/SubmissionAnalysis.vue'),
+        meta: { title: '提交分析', requiresAuth: true, requiredRole: UserRole.TEACHER },
+    },
+    {
+        path: '/teacher/statistics',
+        name: 'TeacherStatistics',
+        component: () => import('@/views/teacher/ClassStatistics.vue'),
+        meta: { title: '班级统计', requiresAuth: true, requiredRole: UserRole.TEACHER },
     },
     // ==================== 管理员功能 ====================
     {

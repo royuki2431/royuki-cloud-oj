@@ -50,7 +50,12 @@ public interface SubmissionMapper {
     Integer countByUserId(Long userId);
     
     /**
-     * 统计用户通过的题目数
+     * 统计用户通过的提交次数
      */
     Integer countAcceptedByUserId(Long userId);
+    
+    /**
+     * 统计用户解决的不同题目数（通过的题目去重）
+     */
+    Integer countDistinctAcceptedProblemsByUserId(Long userId);
 }

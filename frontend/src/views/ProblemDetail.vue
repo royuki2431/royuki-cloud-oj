@@ -1,5 +1,22 @@
 <template>
   <div class="problem-detail">
+    <!-- 作业模式提示 -->
+    <el-alert
+      v-if="isHomeworkMode"
+      title="作业模式"
+      type="info"
+      :closable="false"
+      show-icon
+      style="margin-bottom: 16px"
+    >
+      <template #default>
+        您正在完成作业题目，提交后将自动记录到作业成绩中。
+        <el-button type="primary" link @click="$router.push(`/my-homework?homeworkId=${homeworkId}`)">
+          返回作业
+        </el-button>
+      </template>
+    </el-alert>
+    
     <el-row :gutter="20">
       <!-- 左侧：题目描述 -->
       <el-col :span="10">
@@ -304,6 +321,10 @@ const route = useRoute()
 const userStore = useUserStore()
 
 const problemId = Number(route.params.id)
+const homeworkId = route.query.homeworkId ? Number(route.query.homeworkId) : undefined
+
+// 是否从作业页面进入
+const isHomeworkMode = !!homeworkId
 
 // 题目数据
 const loading = ref(false)
@@ -467,12 +488,17 @@ const handleSubmit = async () => {
   judgeStatus.value = '提交中...'
 
   try {
-    const submissionId = await submitCode({
+    const submitRequest: any = {
       problemId: problemId,
       userId: userStore.userInfo!.id,
       language: selectedLanguage.value,
       code: code.value,
-    })
+    }
+    // 如果是作业模式，传递homeworkId
+    if (homeworkId) {
+      submitRequest.homeworkId = homeworkId
+    }
+    const submissionId = await submitCode(submitRequest)
 
     currentSubmissionId.value = submissionId
     ElMessage.success('代码已提交，开始评测...')
