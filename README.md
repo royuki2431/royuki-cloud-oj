@@ -54,19 +54,6 @@
 
 ---
 
-## 📸 系统截图
-
-### 题目列表页
-![题目列表](https://via.placeholder.com/800x450?text=Problem+List)
-
-### 代码编辑页
-![代码编辑](https://via.placeholder.com/800x450?text=Code+Editor)
-
-### 学习统计页
-![学习统计](https://via.placeholder.com/800x450?text=Learning+Statistics)
-
----
-
 <div align="center">
 
 **⭐ 如果这个项目对你有帮助，请给个Star支持一下！⭐**
