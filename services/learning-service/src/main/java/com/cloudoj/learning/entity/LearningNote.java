@@ -52,4 +52,19 @@ public class LearningNote implements Serializable {
      * 更新时间
      */
     private LocalDateTime updatedTime;
+    
+    /**
+     * 作者名称（非数据库字段，用于展示）
+     */
+    private transient String authorName;
+    
+    /**
+     * 题目标题（非数据库字段，用于展示）
+     */
+    private transient String problemTitle;
+    
+    /**
+     * 浏览次数
+     */
+    private Integer viewCount;
 }

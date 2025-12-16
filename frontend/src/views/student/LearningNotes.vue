@@ -14,6 +14,10 @@
             <el-icon><Search /></el-icon>
           </template>
         </el-input>
+        <el-button @click="openNoteSquare">
+          <el-icon><Collection /></el-icon>
+          笔记广场
+        </el-button>
         <el-button type="primary" @click="showCreateDialog">
           <el-icon><Plus /></el-icon>
           新建笔记
@@ -109,10 +113,54 @@
     <el-dialog v-model="viewDialogVisible" :title="currentNote?.title" width="700px">
       <div class="note-view">
         <div class="note-meta">
-          <span v-if="currentNote?.problemId">关联题目：{{ getProblemTitle(currentNote.problemId) }}</span>
+          <span v-if="currentNote?.authorName" class="author-info">
+            <el-tag size="small" type="info">{{ currentNote.authorName }}</el-tag>
+          </span>
+          <span v-if="currentNote?.problemId">关联题目：{{ currentNote.problemTitle || getProblemTitle(currentNote.problemId) }}</span>
           <span>更新时间：{{ formatTime(currentNote?.updatedTime) }}</span>
+          <span v-if="currentNote?.viewCount !== undefined">
+            <el-icon><View /></el-icon> {{ currentNote.viewCount }} 次浏览
+          </span>
         </div>
         <div class="note-body" v-html="renderMarkdown(currentNote?.content || '')"></div>
+      </div>
+    </el-dialog>
+    
+    <!-- 笔记广场对话框 -->
+    <el-dialog 
+      v-model="showNoteSquare" 
+      title="📚 笔记广场" 
+      width="900px"
+      top="5vh"
+    >
+      <div class="note-square" v-loading="loadingPublic">
+        <el-empty v-if="publicNotes.length === 0" description="暂无公开笔记" />
+        <div v-else class="public-notes-grid">
+          <el-card 
+            v-for="note in publicNotes" 
+            :key="note.id" 
+            class="public-note-card"
+            shadow="hover"
+            @click="viewPublicNote(note)"
+          >
+            <div class="public-note-header">
+              <span class="public-note-title">{{ note.title }}</span>
+              <el-tag size="small" type="info">{{ note.authorName || '匿名' }}</el-tag>
+            </div>
+            <div class="public-note-preview">
+              {{ note.content.length > 80 ? note.content.substring(0, 80) + '...' : note.content }}
+            </div>
+            <div class="public-note-footer">
+              <span><el-icon><View /></el-icon> {{ note.viewCount || 0 }}</span>
+              <span>{{ formatTime(note.updatedTime) }}</span>
+            </div>
+          </el-card>
+        </div>
+        <div class="load-more" v-if="publicNotes.length >= 20">
+          <el-button @click="loadMorePublicNotes" :loading="loadingPublic">
+            加载更多
+          </el-button>
+        </div>
       </div>
     </el-dialog>
   </div>
@@ -121,13 +169,15 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Plus } from '@element-plus/icons-vue'
+import { Search, Plus, Collection, View } from '@element-plus/icons-vue'
 import { 
   getUserNotes, 
   createNote, 
   updateNote, 
   deleteNote,
   searchNotes,
+  getAllPublicNotes,
+  viewNote as viewNoteApi,
   type LearningNote,
   type CreateNoteRequest,
   type UpdateNoteRequest
@@ -143,6 +193,12 @@ const dialogVisible = ref(false)
 const viewDialogVisible = ref(false)
 const isEdit = ref(false)
 const currentNote = ref<LearningNote | null>(null)
+
+// 笔记广场
+const showNoteSquare = ref(false)
+const publicNotes = ref<LearningNote[]>([])
+const loadingPublic = ref(false)
+const publicPage = ref(1)
 
 const noteForm = ref({
   id: 0,
@@ -361,6 +417,52 @@ const renderMarkdown = (content: string) => {
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
 }
 
+// 加载公开笔记
+const loadPublicNotes = async () => {
+  loadingPublic.value = true
+  try {
+    publicNotes.value = await getAllPublicNotes(publicPage.value, 20)
+  } catch (error) {
+    console.error('加载公开笔记失败:', error)
+    ElMessage.error('加载公开笔记失败')
+  } finally {
+    loadingPublic.value = false
+  }
+}
+
+// 查看公开笔记详情
+const viewPublicNote = async (note: LearningNote) => {
+  try {
+    const detail = await viewNoteApi(note.id)
+    currentNote.value = detail
+    viewDialogVisible.value = true
+  } catch (error) {
+    ElMessage.error('加载笔记详情失败')
+  }
+}
+
+// 打开笔记广场时加载数据
+const openNoteSquare = () => {
+  publicPage.value = 1
+  publicNotes.value = []
+  showNoteSquare.value = true
+  loadPublicNotes()
+}
+
+// 加载更多公开笔记
+const loadMorePublicNotes = async () => {
+  publicPage.value++
+  loadingPublic.value = true
+  try {
+    const moreNotes = await getAllPublicNotes(publicPage.value, 20)
+    publicNotes.value = [...publicNotes.value, ...moreNotes]
+  } catch (error) {
+    console.error('加载更多笔记失败:', error)
+  } finally {
+    loadingPublic.value = false
+  }
+}
+
 onMounted(() => {
   loadNotes()
   loadProblemList()
@@ -466,6 +568,18 @@ onMounted(() => {
     margin-bottom: 16px;
     font-size: 14px;
     color: #909399;
+    align-items: center;
+    flex-wrap: wrap;
+    
+    .author-info {
+      margin-right: 8px;
+    }
+    
+    span {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
   }
   
   .note-body {
@@ -478,6 +592,71 @@ onMounted(() => {
       border-radius: 4px;
       font-family: monospace;
     }
+  }
+}
+
+// 笔记广场样式
+.note-square {
+  min-height: 400px;
+  
+  .public-notes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px;
+  }
+  
+  .public-note-card {
+    cursor: pointer;
+    transition: all 0.3s;
+    
+    &:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+    
+    .public-note-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      
+      .public-note-title {
+        font-weight: 600;
+        font-size: 14px;
+        color: #303133;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        flex: 1;
+        margin-right: 8px;
+      }
+    }
+    
+    .public-note-preview {
+      color: #606266;
+      font-size: 13px;
+      line-height: 1.5;
+      min-height: 40px;
+      margin-bottom: 8px;
+    }
+    
+    .public-note-footer {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #909399;
+      
+      span {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+    }
+  }
+  
+  .load-more {
+    text-align: center;
+    margin-top: 20px;
   }
 }
 </style>

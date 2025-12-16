@@ -166,6 +166,39 @@
                 ref="submissionHistoryRef"
               />
             </el-tab-pane>
+            
+            <el-tab-pane label="公开笔记" name="notes">
+              <template #label>
+                <span>
+                  <el-icon><Notebook /></el-icon> 公开笔记
+                  <el-badge v-if="publicNotes.length > 0" :value="publicNotes.length" :max="99" class="note-badge" />
+                </span>
+              </template>
+              <div class="public-notes" v-loading="loadingNotes">
+                <el-empty v-if="publicNotes.length === 0" description="暂无公开笔记，快来分享你的解题思路吧！" />
+                <div v-else class="notes-list">
+                  <el-card 
+                    v-for="note in publicNotes" 
+                    :key="note.id" 
+                    class="note-item"
+                    shadow="hover"
+                    @click="handleViewNote(note)"
+                  >
+                    <div class="note-header">
+                      <span class="note-title">{{ note.title }}</span>
+                      <el-tag size="small" type="info">{{ note.authorName || '匿名' }}</el-tag>
+                    </div>
+                    <div class="note-preview">
+                      {{ note.content.length > 100 ? note.content.substring(0, 100) + '...' : note.content }}
+                    </div>
+                    <div class="note-meta">
+                      <span><el-icon><View /></el-icon> {{ note.viewCount || 0 }}</span>
+                      <span>{{ formatNoteTime(note.updatedTime) }}</span>
+                    </div>
+                  </el-card>
+                </div>
+              </div>
+            </el-tab-pane>
           </el-tabs>
         </el-card>
       </el-col>
@@ -288,6 +321,23 @@
         <p>{{ judgeStatus || '评测中，请稍候...' }}</p>
       </div>
     </el-dialog>
+    
+    <!-- 笔记详情对话框 -->
+    <el-dialog
+      v-model="noteDialogVisible"
+      :title="currentViewNote?.title || '笔记详情'"
+      width="700px"
+    >
+      <div v-if="currentViewNote" class="note-detail">
+        <div class="note-info">
+          <el-tag type="info">{{ currentViewNote.authorName || '匿名' }}</el-tag>
+          <span class="note-time">{{ formatNoteTime(currentViewNote.updatedTime) }}</span>
+          <span class="note-views"><el-icon><View /></el-icon> {{ currentViewNote.viewCount || 0 }} 次浏览</span>
+        </div>
+        <el-divider />
+        <div class="note-content-body" v-html="renderMarkdown(currentViewNote.content)"></div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -295,11 +345,12 @@
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Loading, Edit, Document, Upload, Timer, Cpu, Clock } from '@element-plus/icons-vue'
+import { Loading, Edit, Document, Upload, Timer, Cpu, Clock, Notebook, View } from '@element-plus/icons-vue'
 import MonacoEditor from '@/components/MonacoEditor.vue'
 import SubmissionHistory from '@/components/SubmissionHistory.vue'
 import { getProblemById, getSampleTestCases } from '@/api/problem'
 import { submitCode, getJudgeResult } from '@/api/judge'
+import { getPublicNotes, viewNote, type LearningNote } from '@/api/learning'
 import { useUserStore } from '@/stores/user'
 import { judgeWebSocket, type JudgeStatusMessage, type JudgeResultMessage } from '@/utils/websocket'
 import {
@@ -346,6 +397,12 @@ const expandedTestCases = ref<number[]>([])  // 展开的测试用例
 // 标签页
 const activeTab = ref('editor')
 const submissionHistoryRef = ref<InstanceType<typeof SubmissionHistory> | null>(null)
+
+// 公开笔记
+const publicNotes = ref<LearningNote[]>([])
+const loadingNotes = ref(false)
+const noteDialogVisible = ref(false)
+const currentViewNote = ref<LearningNote | null>(null)
 
 // 默认代码模板
 const defaultCode: Record<Language, string> = {
@@ -598,9 +655,47 @@ const pollJudgeResult = async (submissionId: number) => {
   await poll()
 }
 
+// 加载公开笔记
+const loadPublicNotes = async () => {
+  if (!problemId) return
+  loadingNotes.value = true
+  try {
+    publicNotes.value = await getPublicNotes(problemId)
+  } catch (error) {
+    console.error('加载公开笔记失败:', error)
+  } finally {
+    loadingNotes.value = false
+  }
+}
+
+// 查看笔记详情
+const handleViewNote = async (note: LearningNote) => {
+  try {
+    const detail = await viewNote(note.id)
+    currentViewNote.value = detail
+    noteDialogVisible.value = true
+  } catch (error) {
+    ElMessage.error('加载笔记详情失败')
+  }
+}
+
+// 格式化时间
+const formatNoteTime = (time: string) => {
+  return new Date(time).toLocaleString('zh-CN')
+}
+
+// 简单的 Markdown 渲染
+const renderMarkdown = (content: string) => {
+  return content
+    .replace(/\n/g, '<br>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+}
+
 onMounted(() => {
   loadProblem()
   connectWebSocket()
+  loadPublicNotes()
 })
 
 onUnmounted(() => {
@@ -797,6 +892,92 @@ onUnmounted(() => {
     margin-top: 16px;
     font-size: 16px;
     color: #606266;
+  }
+}
+
+// 公开笔记样式
+.note-badge {
+  margin-left: 6px;
+}
+
+.public-notes {
+  min-height: 300px;
+  
+  .notes-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .note-item {
+    cursor: pointer;
+    transition: all 0.3s;
+    
+    &:hover {
+      transform: translateX(4px);
+      border-left: 3px solid #409eff;
+    }
+    
+    .note-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      
+      .note-title {
+        font-weight: 600;
+        font-size: 15px;
+        color: #303133;
+      }
+    }
+    
+    .note-preview {
+      color: #606266;
+      font-size: 13px;
+      line-height: 1.6;
+      margin-bottom: 8px;
+    }
+    
+    .note-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #909399;
+      
+      span {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+    }
+  }
+}
+
+.note-detail {
+  .note-info {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    
+    .note-time, .note-views {
+      font-size: 13px;
+      color: #909399;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+  }
+  
+  .note-content-body {
+    line-height: 1.8;
+    font-size: 15px;
+    
+    :deep(code) {
+      background: #f5f7fa;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'Courier New', Courier, monospace;
+    }
   }
 }
 </style>

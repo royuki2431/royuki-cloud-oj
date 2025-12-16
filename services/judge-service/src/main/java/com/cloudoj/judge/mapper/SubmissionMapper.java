@@ -58,4 +58,9 @@ public interface SubmissionMapper {
      * 统计用户解决的不同题目数（通过的题目去重）
      */
     Integer countDistinctAcceptedProblemsByUserId(Long userId);
+    
+    /**
+     * 统计总提交数
+     */
+    Long countTotal();
 }

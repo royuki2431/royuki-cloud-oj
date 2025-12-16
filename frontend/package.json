@@ -13,12 +13,14 @@
         "axios": "^1.6.2",
         "echarts": "^6.0.0",
         "element-plus": "^2.4.4",
+        "markdown-it": "^14.1.0",
         "monaco-editor": "^0.45.0",
         "pinia": "^2.1.7",
         "vue": "^3.3.11",
         "vue-router": "^4.2.5"
     },
     "devDependencies": {
+        "@types/markdown-it": "^14.1.2",
         "@types/node": "^20.10.6",
         "@vitejs/plugin-vue": "^5.0.0",
         "sass-embedded": "^1.93.3",

@@ -183,6 +183,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '题目管理', requiresAuth: true, requiredRole: UserRole.ADMIN },
     },
     {
+        path: '/admin/notes',
+        name: 'AdminNotes',
+        component: () => import('@/views/admin/NoteManage.vue'),
+        meta: { title: '笔记管理', requiresAuth: true, requiredRole: UserRole.ADMIN },
+    },
+    {
         path: '/admin/system',
         name: 'AdminSystem',
         component: () => import('@/views/admin/SystemSettings.vue'),

@@ -45,7 +45,37 @@ public interface LearningNoteService {
     List<LearningNote> getPublicNotes(Long problemId);
     
     /**
+     * 获取所有公开笔记（笔记广场）
+     */
+    List<LearningNote> getAllPublicNotes(int page, int size);
+    
+    /**
      * 搜索笔记
      */
     List<LearningNote> searchNotes(Long userId, String keyword);
+    
+    /**
+     * 增加笔记浏览次数
+     */
+    void incrementViewCount(Long noteId);
+    
+    /**
+     * 管理员获取所有笔记（分页）
+     */
+    List<LearningNote> getAllNotes(int page, int size, String keyword, Integer isPublic);
+    
+    /**
+     * 管理员统计笔记总数
+     */
+    long countAllNotes(String keyword, Integer isPublic);
+    
+    /**
+     * 管理员删除笔记（无需验证用户）
+     */
+    void adminDeleteNote(Long id);
+    
+    /**
+     * 管理员更新笔记公开状态
+     */
+    void updateNotePublicStatus(Long id, Integer isPublic);
 }

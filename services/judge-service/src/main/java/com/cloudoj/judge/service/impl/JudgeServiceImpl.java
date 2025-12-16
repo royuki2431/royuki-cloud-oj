@@ -821,4 +821,10 @@ public class JudgeServiceImpl implements JudgeService {
         
         return stats;
     }
+    
+    @Override
+    public Long getTotalSubmissionCount() {
+        Long count = submissionMapper.countTotal();
+        return count != null ? count : 0L;
+    }
 }

@@ -2,7 +2,7 @@
     <div class="system-settings">
         <el-page-header content="系统设置" />
         
-        <el-card class="settings-card" shadow="hover">
+        <el-card class="settings-card" shadow="hover" v-loading="loading">
             <el-tabs v-model="activeTab">
                 <!-- 基础设置 -->
                 <el-tab-pane label="基础设置" name="basic">
@@ -142,10 +142,12 @@
                                 </template>
                                 <el-descriptions :column="1" border>
                                     <el-descriptions-item label="系统版本">
-                                        <el-tag type="primary">v1.0.0</el-tag>
+                                        <el-tag type="primary">{{ systemInfo.version }}</el-tag>
                                     </el-descriptions-item>
                                     <el-descriptions-item label="运行状态">
-                                        <el-tag type="success">正常运行</el-tag>
+                                        <el-tag :type="systemInfo.dbStatus && systemInfo.redisStatus ? 'success' : 'warning'">
+                                            {{ systemInfo.dbStatus && systemInfo.redisStatus ? '正常运行' : '部分异常' }}
+                                        </el-tag>
                                     </el-descriptions-item>
                                     <el-descriptions-item label="启动时间">
                                         {{ systemInfo.startTime }}
@@ -265,7 +267,7 @@
                                     <el-tag>{{ cacheInfo.redisKeys }} 个键</el-tag>
                                 </el-descriptions-item>
                                 <el-descriptions-item label="操作">
-                                    <el-button type="danger" size="small" @click="clearCache('redis')">
+                                    <el-button type="danger" size="small" @click="handleClearCache('redis')">
                                         清除Redis缓存
                                     </el-button>
                                 </el-descriptions-item>
@@ -273,8 +275,16 @@
                                     <el-tag>{{ cacheInfo.sessionCount }} 个会话</el-tag>
                                 </el-descriptions-item>
                                 <el-descriptions-item label="操作">
-                                    <el-button type="warning" size="small" @click="clearCache('session')">
+                                    <el-button type="warning" size="small" @click="handleClearCache('session')">
                                         清除所有Session
+                                    </el-button>
+                                </el-descriptions-item>
+                                <el-descriptions-item label="题目缓存">
+                                    <el-tag>{{ cacheInfo.problemCacheCount || 0 }} 个键</el-tag>
+                                </el-descriptions-item>
+                                <el-descriptions-item label="操作">
+                                    <el-button type="warning" size="small" @click="handleClearCache('problem')">
+                                        清除题目缓存
                                     </el-button>
                                 </el-descriptions-item>
                             </el-descriptions>
@@ -287,13 +297,26 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { User, Document, List } from '@element-plus/icons-vue'
+import { User, Document, List, Refresh } from '@element-plus/icons-vue'
+import { 
+    getSystemSettings, 
+    updateSystemSettings, 
+    getSystemInfo, 
+    getCacheInfo, 
+    clearCache,
+    getProblemStats,
+    getSubmissionStats,
+    type SystemSettings as ISystemSettings,
+    type SystemInfo as ISystemInfo,
+    type CacheInfo as ICacheInfo
+} from '@/api/system'
 
 const activeTab = ref('basic')
 const saving = ref(false)
 const testing = ref(false)
+const loading = ref(false)
 
 // 系统设置
 const settings = reactive({
@@ -327,32 +350,59 @@ const settings = reactive({
 
 // 系统信息
 const systemInfo = reactive({
-    startTime: '2024-01-01 00:00:00',
-    uptime: '30天 12小时 30分钟',
-    dbStatus: true,
-    redisStatus: true,
-    mqStatus: true,
-    userCount: 1234,
-    problemCount: 567,
-    submissionCount: 89012,
-    cpuUsage: 35,
-    memoryUsage: 62,
-    diskUsage: 45,
+    version: 'v1.0.0',
+    startTime: '-',
+    uptime: '-',
+    dbStatus: false,
+    redisStatus: false,
+    mqStatus: false,
+    userCount: 0,
+    problemCount: 0,
+    submissionCount: 0,
+    cpuUsage: 0,
+    memoryUsage: 0,
+    diskUsage: 0,
 })
 
 // 缓存信息
 const cacheInfo = reactive({
-    redisKeys: 1520,
-    sessionCount: 245,
+    redisKeys: 0,
+    sessionCount: 0,
+    problemCacheCount: 0,
+    userCacheCount: 0,
 })
+
+// 加载系统设置
+const loadSettings = async () => {
+    loading.value = true
+    try {
+        const data = await getSystemSettings()
+        if (data) {
+            Object.assign(settings, data)
+            // 处理语言数组
+            if (typeof data.supportedLanguages === 'string') {
+                settings.supportedLanguages = data.supportedLanguages.split(',')
+            }
+        }
+    } catch (error: any) {
+        console.error('加载设置失败:', error)
+    } finally {
+        loading.value = false
+    }
+}
 
 // 保存设置
 const saveSettings = async () => {
     saving.value = true
     try {
-        // TODO: 调用API保存设置
-        // await updateSystemSettings(settings)
-        await new Promise(resolve => setTimeout(resolve, 1000))
+        // 转换语言数组为字符串
+        const settingsToSave = {
+            ...settings,
+            supportedLanguages: Array.isArray(settings.supportedLanguages) 
+                ? settings.supportedLanguages.join(',') 
+                : settings.supportedLanguages
+        }
+        await updateSystemSettings(settingsToSave)
         ElMessage.success('设置保存成功')
     } catch (error: any) {
         ElMessage.error(error.message || '保存失败')
@@ -401,19 +451,36 @@ const testEmail = async () => {
     }
 }
 
+// 加载系统信息
+const loadSystemInfo = async () => {
+    try {
+        const info = await getSystemInfo()
+        if (info) {
+            Object.assign(systemInfo, info)
+        }
+        
+        // 并行获取题目和提交统计
+        const [problemStats, submissionStats] = await Promise.allSettled([
+            getProblemStats(),
+            getSubmissionStats()
+        ])
+        
+        if (problemStats.status === 'fulfilled' && problemStats.value) {
+            systemInfo.problemCount = problemStats.value.total || 0
+        }
+        
+        if (submissionStats.status === 'fulfilled' && submissionStats.value) {
+            systemInfo.submissionCount = submissionStats.value.total || 0
+        }
+    } catch (error: any) {
+        console.error('加载系统信息失败:', error)
+    }
+}
+
 // 刷新系统信息
 const refreshSystemInfo = async () => {
     try {
-        // TODO: 调用API获取系统信息
-        // const info = await getSystemInfo()
-        // Object.assign(systemInfo, info)
-        await new Promise(resolve => setTimeout(resolve, 500))
-        
-        // 模拟更新
-        systemInfo.cpuUsage = Math.floor(Math.random() * 40) + 20
-        systemInfo.memoryUsage = Math.floor(Math.random() * 30) + 50
-        systemInfo.diskUsage = Math.floor(Math.random() * 20) + 40
-        
+        await loadSystemInfo()
         ElMessage.success('系统信息已刷新')
     } catch (error: any) {
         ElMessage.error(error.message || '刷新失败')
@@ -427,9 +494,26 @@ const getProgressColor = (percentage: number) => {
     return '#f56c6c'
 }
 
+// 加载缓存信息
+const loadCacheInfo = async () => {
+    try {
+        const info = await getCacheInfo()
+        if (info) {
+            Object.assign(cacheInfo, info)
+        }
+    } catch (error: any) {
+        console.error('加载缓存信息失败:', error)
+    }
+}
+
 // 清除缓存
-const clearCache = async (type: string) => {
-    const typeText = type === 'redis' ? 'Redis缓存' : '所有Session'
+const handleClearCache = async (type: 'redis' | 'session' | 'problem') => {
+    const typeTextMap: Record<string, string> = {
+        redis: 'Redis缓存',
+        session: '所有Session',
+        problem: '题目缓存'
+    }
+    const typeText = typeTextMap[type]
     
     try {
         await ElMessageBox.confirm(
@@ -442,18 +526,11 @@ const clearCache = async (type: string) => {
             }
         )
         
-        // TODO: 调用API清除缓存
-        // await clearCacheApi(type)
-        await new Promise(resolve => setTimeout(resolve, 1000))
-        
+        await clearCache(type)
         ElMessage.success(`${typeText}已清除`)
         
-        // 更新缓存信息
-        if (type === 'redis') {
-            cacheInfo.redisKeys = 0
-        } else {
-            cacheInfo.sessionCount = 0
-        }
+        // 刷新缓存信息
+        await loadCacheInfo()
     } catch (error: any) {
         if (error !== 'cancel') {
             ElMessage.error(error.message || '操作失败')
@@ -461,9 +538,18 @@ const clearCache = async (type: string) => {
     }
 }
 
+// 监听标签页切换，按需加载数据
+watch(activeTab, (newTab) => {
+    if (newTab === 'info') {
+        loadSystemInfo()
+    } else if (newTab === 'cache') {
+        loadCacheInfo()
+    }
+})
+
 onMounted(() => {
     // 加载系统设置
-    // loadSystemSettings()
+    loadSettings()
 })
 </script>
 

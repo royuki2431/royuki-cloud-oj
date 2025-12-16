@@ -59,4 +59,30 @@ public interface LearningNoteMapper {
      * 统计用户笔记数
      */
     Long countByUserId(@Param("userId") Long userId);
+    
+    /**
+     * 查询所有公开笔记（分页）
+     */
+    List<LearningNote> selectAllPublicNotes(@Param("offset") int offset, @Param("limit") int limit);
+    
+    /**
+     * 增加浏览次数
+     */
+    int incrementViewCount(@Param("id") Long id);
+    
+    /**
+     * 管理员查询所有笔记（分页+筛选）
+     */
+    List<LearningNote> selectAllNotes(@Param("offset") int offset, @Param("limit") int limit, 
+                                       @Param("keyword") String keyword, @Param("isPublic") Integer isPublic);
+    
+    /**
+     * 管理员统计笔记总数
+     */
+    long countAllNotes(@Param("keyword") String keyword, @Param("isPublic") Integer isPublic);
+    
+    /**
+     * 更新笔记公开状态
+     */
+    int updatePublicStatus(@Param("id") Long id, @Param("isPublic") Integer isPublic);
 }

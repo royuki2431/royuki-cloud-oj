@@ -123,4 +123,11 @@
         AND (deleted = 0 OR deleted IS NULL)
     </select>
     
+    <!-- 统计总提交数 -->
+    <select id="countTotal" resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM submission
+        WHERE (deleted = 0 OR deleted IS NULL)
+    </select>
+    
 </mapper>

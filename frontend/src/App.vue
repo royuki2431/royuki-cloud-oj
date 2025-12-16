@@ -63,6 +63,7 @@
             </template>
             <el-menu-item index="/admin/users">用户管理</el-menu-item>
             <el-menu-item index="/admin/problems">题目管理</el-menu-item>
+            <el-menu-item index="/admin/notes">笔记管理</el-menu-item>
             <el-menu-item index="/admin/system">系统设置</el-menu-item>
           </el-sub-menu>
         </el-menu>

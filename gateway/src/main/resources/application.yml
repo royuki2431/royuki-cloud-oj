@@ -45,6 +45,14 @@ spring:
           filters:
             - StripPrefix=1  # 去掉第一层路径/api
         
+        # 系统管理路由（映射到 user-service）
+        - id: system-service
+          uri: lb://user-service
+          predicates:
+            - Path=/api/system/**
+          filters:
+            - RewritePath=/api/system/(?<segment>.*), /user/system/${segment}
+        
         # 题库服务路由
         - id: problem-service
           uri: lb://problem-service

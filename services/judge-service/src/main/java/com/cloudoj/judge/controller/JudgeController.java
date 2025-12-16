@@ -205,4 +205,14 @@ public class JudgeController {
         
         return Result.error(429, "查询过于频繁，请稍后重试");
     }
+    
+    /**
+     * 获取提交总数统计
+     */
+    @GetMapping("/submission/count")
+    public Result<Long> getSubmissionCount() {
+        log.info("获取提交总数统计");
+        Long count = judgeService.getTotalSubmissionCount();
+        return Result.success(count);
+    }
 }

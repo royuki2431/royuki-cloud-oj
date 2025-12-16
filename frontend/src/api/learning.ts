@@ -104,8 +104,12 @@ export interface LearningNote {
   title: string
   content: string
   isPublic: number
+  viewCount: number
   createdTime: string
   updatedTime: string
+  // 额外字段（用于展示）
+  authorName?: string
+  problemTitle?: string
 }
 
 export interface CreateNoteRequest {
@@ -157,6 +161,16 @@ export function getPublicNotes(problemId: number) {
   })
 }
 
+export function getAllPublicNotes(page: number = 1, size: number = 20) {
+  return request.get<any, LearningNote[]>('/learning/note/public/all', {
+    params: { page, size }
+  })
+}
+
+export function viewNote(id: number) {
+  return request.get<any, LearningNote>(`/learning/note/view/${id}`)
+}
+
 export function searchNotes(userId: number, keyword: string) {
   return request.get<any, LearningNote[]>('/learning/note/search', {
     params: { userId, keyword }
@@ -197,4 +211,32 @@ export function getLeaderboard(limit: number = 10) {
 // 获取班级题库训练排行榜
 export function getClassLeaderboard(classId: number) {
   return request.get<any, any[]>(`/course/statistics/practice/${classId}`)
+}
+
+// ==================== 管理员笔记管理 ====================
+
+export interface AdminNoteListResult {
+  list: LearningNote[]
+  total: number
+  page: number
+  size: number
+}
+
+export function adminGetAllNotes(params: {
+  page?: number
+  size?: number
+  keyword?: string
+  isPublic?: number | null
+}) {
+  return request.get<any, AdminNoteListResult>('/learning/admin/note/list', { params })
+}
+
+export function adminDeleteNote(id: number) {
+  return request.delete<any, void>(`/learning/admin/note/${id}`)
+}
+
+export function adminUpdateNotePublicStatus(id: number, isPublic: number) {
+  return request.put<any, void>(`/learning/admin/note/${id}/public`, null, {
+    params: { isPublic }
+  })
 }

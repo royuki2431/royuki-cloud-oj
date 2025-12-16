@@ -64,4 +64,9 @@ public interface JudgeService {
      * 获取用户提交统计
      */
     java.util.Map<String, Object> getUserSubmissionStats(Long userId);
+    
+    /**
+     * 获取总提交数
+     */
+    Long getTotalSubmissionCount();
 }

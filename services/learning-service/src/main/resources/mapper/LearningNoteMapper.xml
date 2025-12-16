@@ -10,13 +10,14 @@
         <result column="title" jdbcType="VARCHAR" property="title" />
         <result column="content" jdbcType="LONGVARCHAR" property="content" />
         <result column="is_public" jdbcType="INTEGER" property="isPublic" />
+        <result column="view_count" jdbcType="INTEGER" property="viewCount" />
         <result column="created_time" jdbcType="TIMESTAMP" property="createdTime" />
         <result column="updated_time" jdbcType="TIMESTAMP" property="updatedTime" />
     </resultMap>
     
     <!-- 基础列 -->
     <sql id="Base_Column_List">
-        id, user_id, problem_id, title, content, is_public, created_time, updated_time
+        id, user_id, problem_id, title, content, is_public, view_count, created_time, updated_time
     </sql>
     
     <!-- 根据主键查询 -->
@@ -122,5 +123,58 @@
         FROM learning_note
         WHERE user_id = #{userId,jdbcType=BIGINT}
     </select>
+    
+    <!-- 查询所有公开笔记（分页） -->
+    <select id="selectAllPublicNotes" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM learning_note
+        WHERE is_public = 1
+        ORDER BY updated_time DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+    
+    <!-- 增加浏览次数 -->
+    <update id="incrementViewCount">
+        UPDATE learning_note
+        SET view_count = COALESCE(view_count, 0) + 1
+        WHERE id = #{id,jdbcType=BIGINT}
+    </update>
+    
+    <!-- 管理员查询所有笔记（分页+筛选） -->
+    <select id="selectAllNotes" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List" />
+        FROM learning_note
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (title LIKE CONCAT('%', #{keyword}, '%') OR content LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+            <if test="isPublic != null">
+                AND is_public = #{isPublic}
+            </if>
+        </where>
+        ORDER BY updated_time DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+    
+    <!-- 管理员统计笔记总数 -->
+    <select id="countAllNotes" resultType="long">
+        SELECT COUNT(*)
+        FROM learning_note
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (title LIKE CONCAT('%', #{keyword}, '%') OR content LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+            <if test="isPublic != null">
+                AND is_public = #{isPublic}
+            </if>
+        </where>
+    </select>
+    
+    <!-- 更新笔记公开状态 -->
+    <update id="updatePublicStatus">
+        UPDATE learning_note
+        SET is_public = #{isPublic}, updated_time = NOW()
+        WHERE id = #{id,jdbcType=BIGINT}
+    </update>
     
 </mapper>

@@ -224,13 +224,37 @@ public class LearningController {
     }
     
     /**
-     * 获取公开的笔记列表
+     * 获取公开的笔记列表（按题目）
      */
     @GetMapping("/note/public")
     public Result<List<LearningNote>> getPublicNotes(@RequestParam Long problemId) {
         log.info("查询公开笔记：problemId={}", problemId);
         List<LearningNote> notes = learningNoteService.getPublicNotes(problemId);
         return Result.success(notes);
+    }
+    
+    /**
+     * 获取所有公开笔记（笔记广场）
+     */
+    @GetMapping("/note/public/all")
+    public Result<List<LearningNote>> getAllPublicNotes(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        log.info("查询笔记广场：page={}, size={}", page, size);
+        List<LearningNote> notes = learningNoteService.getAllPublicNotes(page, size);
+        return Result.success(notes);
+    }
+    
+    /**
+     * 查看笔记详情（增加浏览次数）
+     */
+    @GetMapping("/note/view/{id}")
+    public Result<LearningNote> viewNote(@PathVariable Long id) {
+        log.info("查看笔记详情：id={}", id);
+        // 增加浏览次数
+        learningNoteService.incrementViewCount(id);
+        LearningNote note = learningNoteService.getNoteById(id);
+        return Result.success(note);
     }
     
     /**
@@ -294,5 +318,51 @@ public class LearningController {
         log.info("记录学习统计：userId={}", userId);
         learningStatisticsService.recordDailyStatistics(userId, submitCount, acceptCount, problemSolved, codeLines);
         return Result.success("记录成功", null);
+    }
+    
+    // ==================== 管理员笔记管理接口 ====================
+    
+    /**
+     * 管理员获取所有笔记列表（分页）
+     */
+    @GetMapping("/admin/note/list")
+    public Result<Map<String, Object>> adminGetAllNotes(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Integer isPublic) {
+        log.info("管理员查询笔记列表：page={}, size={}, keyword={}, isPublic={}", page, size, keyword, isPublic);
+        List<LearningNote> notes = learningNoteService.getAllNotes(page, size, keyword, isPublic);
+        long total = learningNoteService.countAllNotes(keyword, isPublic);
+        
+        Map<String, Object> result = new java.util.HashMap<>();
+        result.put("list", notes);
+        result.put("total", total);
+        result.put("page", page);
+        result.put("size", size);
+        
+        return Result.success(result);
+    }
+    
+    /**
+     * 管理员删除笔记
+     */
+    @DeleteMapping("/admin/note/{id}")
+    public Result<Void> adminDeleteNote(@PathVariable Long id) {
+        log.info("管理员删除笔记：id={}", id);
+        learningNoteService.adminDeleteNote(id);
+        return Result.success("删除成功", null);
+    }
+    
+    /**
+     * 管理员更新笔记公开状态
+     */
+    @PutMapping("/admin/note/{id}/public")
+    public Result<Void> updateNotePublicStatus(
+            @PathVariable Long id,
+            @RequestParam Integer isPublic) {
+        log.info("管理员更新笔记公开状态：id={}, isPublic={}", id, isPublic);
+        learningNoteService.updateNotePublicStatus(id, isPublic);
+        return Result.success("更新成功", null);
     }
 }
